@@ -1,21 +1,25 @@
 "use client";
 
 import { Avatar } from "@heroui/react";
-import { ChevronRight, Play } from "lucide-react";
+import { Car, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionUser } from "@/auth/useSessionUser";
-import { formatDistance, formatNumber, formatTime } from "@/lib/format";
-import { useMaintenance } from "@/features/maintenance/hooks/useMaintenance";
+import { formatDateTime, formatOdometer } from "@/lib/format";
+import { ReadingRow } from "@/features/readings/components/ReadingRow";
+import { useReadings, useVehicleStats } from "@/features/readings/hooks/useReadings";
+import { SyncBadge } from "@/features/sync/components/SyncBadge";
 import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
+import { recordSyncState } from "@/features/sync/hooks/useRecordSync";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
-import { summarizeToday, useTrips } from "@/features/trips/hooks/useTrips";
-import { useShiftStore } from "@/features/trips/store";
-import { useActiveVehicle } from "@/features/vehicles/hooks/useVehicles";
-import { AlertCard, Button, Card, ErrorState, Figure, ListSkeleton, OfflineBanner, Screen, Spacer } from "@/ui";
+import { useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
+import { selectVehicle } from "@/features/vehicles/repository";
+import { Button, Card, EmptyState, ErrorState, Figure, FilterChip, ListSkeleton, OfflineBanner, Screen, SectionLabel, Spacer } from "@/ui";
+
+const RECENT_COUNT = 3;
 
 export function HomeScreen() {
   const { t } = useTranslation();
@@ -23,39 +27,30 @@ export function HomeScreen() {
   const online = useOnlineStatus();
   const queue = useSyncQueue();
   const { user } = useSessionUser();
-  const active = useActiveVehicle();
-  const vehicle = active.data?.vehicle;
-  const trips = useTrips(vehicle?.id);
-  const maintenance = useMaintenance(vehicle?.id);
-  const beginStart = useShiftStore((s) => s.beginStart);
+  const vehicles = useVehicles("active");
+  const selected = useSelectedVehicle(vehicles.data);
+  const stats = useVehicleStats(selected?.vehicle.id);
+  const readings = useReadings(selected?.vehicle.id);
 
-  // The primary action must feel instant: preload the shift screens.
+  // The primary actions must feel instant: preload their screens.
   useEffect(() => {
-    router.prefetch("/shift/start");
-    router.prefetch("/shift/trip");
+    router.prefetch("/readings/new");
+    router.prefetch("/vehicles/new");
   }, [router]);
 
-  const startShift = () => {
-    if (!vehicle) return;
-    beginStart(vehicle.id);
-    router.push("/shift/start");
-  };
-
-  const loading = active.status === "loading" || trips.status === "loading";
-  const failed = active.status === "error" || trips.status === "error";
-  const today = trips.data ? summarizeToday(trips.data) : undefined;
-  const nextService = maintenance.data?.items[0];
-  const pendingCount = queue.length > 0 ? queue.length : 3;
+  const empty = vehicles.status === "success" && vehicles.data.length === 0;
+  const unit = selected?.vehicle.unit ?? "km";
+  const recent = (readings.data ?? []).slice(0, RECENT_COUNT);
 
   return (
     <>
-      {!online && <OfflineBanner pendingCount={pendingCount} className="mt-2" />}
+      {!online && <OfflineBanner pendingCount={queue.length} className="mt-2" />}
       <Screen>
-        <header className="flex min-h-14 items-center justify-between">
-          <div>
+        <header className="flex min-h-14 items-center justify-between gap-3">
+          <div className="min-w-0">
             <div className="text-secondary text-muted">{user ? t("home.greeting", { name: user.firstName }) : " "}</div>
-            <div className="font-display text-card-title font-semibold">
-              {vehicle ? `${vehicle.name} · ${vehicle.plate ?? ""}` : " "}
+            <div className="truncate font-display text-card-title font-semibold">
+              {selected ? `${selected.vehicle.name}${selected.vehicle.plate ? ` · ${selected.vehicle.plate}` : ""}` : t("app.tagline")}
             </div>
           </div>
           <Link href="/profile" aria-label={t("home.profileOf", { name: user?.name ?? "" })} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime">
@@ -65,72 +60,95 @@ export function HomeScreen() {
           </Link>
         </header>
 
-        {loading && <ListSkeleton />}
-        {failed && <ErrorState onRetry={() => { active.reload(); trips.reload(); }} />}
-
-        {!loading && !failed && today && vehicle && (
-          <>
-            <Card padding="lg">
-              <div className="mb-1.5 text-secondary text-muted">
-                {t("home.kmToday")}
-                {!online && <span className="text-amber-text"> · {t("common.local")}</span>}
-              </div>
-              <Figure size="display" value={formatNumber(today.distance)} unit={vehicle.unit} />
-              <div className="mt-3.5 flex gap-5 text-secondary text-muted">
-                <span>
-                  <b className="font-display text-text">{today.shifts}</b> {t("home.shiftsLabel", { count: today.shifts })}
-                </span>
-                <span>
-                  <b className="font-display text-text">{today.deliveries}</b> {t("home.deliveriesLabel", { count: today.deliveries })}
-                </span>
-                <span>
-                  <b className="font-display text-text">{formatNumber(today.hours)}</b> {t("common.hours")}
-                </span>
-              </div>
-            </Card>
-
-            {online ? (
-              <>
-                {today.lastTrip && (
-                  <Link href={`/history/${today.lastTrip.trip.id}`} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime">
-                    <Card className="flex items-center justify-between px-5 py-4">
-                      <div>
-                        <div className="text-secondary text-muted">{t("home.lastTrip")}</div>
-                        <div className="mt-0.5 font-display text-button font-semibold">{today.lastTrip.trip.reason}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-display text-button font-semibold">{formatDistance(today.lastTrip.distance, vehicle.unit)}</div>
-                        <div className="text-label text-muted">
-                          {t("common.today")}, {formatTime(today.lastTrip.trip.endedAt ?? today.lastTrip.trip.startedAt)}
-                        </div>
-                      </div>
-                    </Card>
-                  </Link>
-                )}
-                {nextService && (
-                  <Link href="/maintenance" className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime">
-                    <AlertCard
-                      title={t("home.maintenanceDue", {
-                        name: t(`maintenance.services.${nextService.rule.name}`),
-                        distance: formatDistance(nextService.progress.remaining, vehicle.unit, 0),
-                      })}
-                      body={t("home.maintenanceScheduled", { value: formatDistance(nextService.nextValue, vehicle.unit, 0) })}
-                      trailing={<ChevronRight className="size-5 text-muted" strokeWidth={2} aria-hidden />}
-                    />
-                  </Link>
-                )}
-              </>
-            ) : (
-              <SyncQueueCard entries={queue} online={online} />
-            )}
-          </>
+        {vehicles.status === "loading" && <ListSkeleton />}
+        {vehicles.status === "error" && <ErrorState onRetry={vehicles.reload} />}
+        {empty && (
+          <EmptyState
+            icon={<Car className="size-13" strokeWidth={1.8} aria-hidden />}
+            title={t("home.emptyTitle")}
+            body={t("home.emptyBody")}
+            action={
+              <Button size="lg" onPress={() => router.push("/vehicles/new")} className="mt-2">
+                <Plus className="size-5" strokeWidth={2.4} aria-hidden />
+                {t("vehicles.add")}
+              </Button>
+            }
+          />
         )}
 
-        <Spacer />
-        <Button size="lg" className="mb-3" onPress={startShift} isDisabled={!vehicle}>
-          <Play className="size-5.5" strokeWidth={2.4} aria-hidden />
-          {t("home.startShift")}
-        </Button>
+        {selected && vehicles.data && (
+          <>
+            {vehicles.data.length > 1 && (
+              <div className="-mx-screen flex gap-2 overflow-x-auto px-screen pb-0.5">
+                {vehicles.data.map((summary) => (
+                  <FilterChip
+                    key={summary.vehicle.id}
+                    selected={summary.vehicle.id === selected.vehicle.id}
+                    onClick={() => selectVehicle(summary.vehicle.id)}
+                  >
+                    {summary.vehicle.name}
+                  </FilterChip>
+                ))}
+              </div>
+            )}
+
+            <Link href={`/vehicles/${selected.vehicle.id}`} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime">
+              <Card padding="lg">
+                <div className="flex items-center justify-between gap-3 text-secondary text-muted">
+                  <span>
+                    {t("home.currentOdometer")}
+                    {!online && <span className="text-amber-text"> · {t("common.local")}</span>}
+                  </span>
+                  <SyncBadge state={recordSyncState(queue, selected.vehicle.id)} showLabel />
+                </div>
+                <Figure size="display" value={formatOdometer(selected.odometer)} unit={unit} className="mt-1.5" />
+                <div className="mt-3 text-secondary text-muted">
+                  {selected.lastReading
+                    ? t("home.lastReadingAt", { date: formatDateTime(selected.lastReading.recordedAt) })
+                    : t("home.noReadingsYet")}
+                </div>
+              </Card>
+            </Link>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <Card padding="none" className="px-4 py-3">
+                <div className="text-label text-muted">{t("home.monthDistance")}</div>
+                <div className="font-display text-stat font-semibold">
+                  {formatOdometer(stats.data?.monthDistance ?? 0)} <span className="text-secondary text-muted">{unit}</span>
+                </div>
+              </Card>
+              <Card padding="none" className="px-4 py-3">
+                <div className="text-label text-muted">{t("home.monthReadings")}</div>
+                <div className="font-display text-stat font-semibold">{stats.data?.monthReadings ?? 0}</div>
+              </Card>
+            </div>
+
+            {recent.length > 0 && (
+              <section className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <SectionLabel>{t("home.recentReadings")}</SectionLabel>
+                  <Link
+                    href={`/history?vehicle=${selected.vehicle.id}`}
+                    className="rounded-sm text-secondary font-semibold text-lime-text outline-none focus-visible:ring-2 focus-visible:ring-lime"
+                  >
+                    {t("home.seeAll")}
+                  </Link>
+                </div>
+                {recent.map((entry) => (
+                  <ReadingRow key={entry.reading.id} entry={entry} unit={unit} withDate />
+                ))}
+              </section>
+            )}
+
+            {!online && <SyncQueueCard entries={queue} online={online} />}
+
+            <Spacer />
+            <Button size="lg" className="mb-1" onPress={() => router.push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
+              <Plus className="size-5.5" strokeWidth={2.4} aria-hidden />
+              {t("readings.new")}
+            </Button>
+          </>
+        )}
       </Screen>
     </>
   );

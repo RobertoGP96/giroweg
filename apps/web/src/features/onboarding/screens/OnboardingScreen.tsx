@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
-import { formatDistance } from "@/lib/format";
+import { formatOdometerDistance } from "@/lib/format";
 import { Button, Card, LogoMark, Screen } from "@/ui";
 
 const STEPS = ["step1", "step2", "step3"] as const;
@@ -64,6 +64,7 @@ export function OnboardingScreen() {
   );
 }
 
+/** Decorative previews of the product; figures are illustrative only. */
 function Illustration({ step }: { step: (typeof STEPS)[number] }) {
   if (step === "step1") {
     return <LogoMark size={140} className="text-lime" />;
@@ -76,19 +77,19 @@ function Illustration({ step }: { step: (typeof STEPS)[number] }) {
     );
   }
   const rows = [
-    { label: "Lun 14", km: 86.4 },
-    { label: "Mar 15", km: 92.1 },
-    { label: "Mié 16", km: 141, review: true },
+    { label: "Lun 14", value: 34_132, delta: 86 },
+    { label: "Mar 15", value: 34_218, delta: 86 },
+    { label: "Mié 16", value: 34_301, delta: 83 },
   ];
   return (
-    <div className="flex w-full flex-col gap-2.5">
+    <div className="flex w-full flex-col gap-2.5" aria-hidden>
       {rows.map((row) => (
-        <Card key={row.label} tone={row.review ? "alert" : "default"} className="flex items-center justify-between">
-          <span className="text-body">
-            {row.label}
-            {row.review && <span className="text-amber-text"> · revisar</span>}
+        <Card key={row.label} className="flex items-center justify-between">
+          <span className="text-body text-muted">{row.label}</span>
+          <span className="font-display text-figure-sm font-semibold">
+            {formatOdometerDistance(row.value, "km")}{" "}
+            <span className="text-secondary text-lime-text">+{row.delta}</span>
           </span>
-          <span className="font-display text-figure-sm font-semibold">{formatDistance(row.km, "km")}</span>
         </Card>
       ))}
     </div>

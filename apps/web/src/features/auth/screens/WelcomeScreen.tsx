@@ -27,7 +27,7 @@ export function WelcomeScreen() {
       setError(t("states.errorTitle"));
       return;
     }
-    router.replace("/vehicles");
+    router.replace("/home");
   };
 
   return (

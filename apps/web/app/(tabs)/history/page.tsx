@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { HistoryScreen } from "@/features/trips/screens/HistoryScreen";
+import { HistoryScreen } from "@/features/readings/screens/HistoryScreen";
 
 export default function HistoryPage() {
   return (

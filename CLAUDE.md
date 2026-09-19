@@ -19,9 +19,9 @@ corromper y disponible sin conexión.
   SQL en `migrations/` generadas con drizzle-kit; las funciones, triggers y
   grants van en migraciones `--custom`). Cliente `createDb(url, authToken?)`
   sobre `@neondatabase/serverless` (HTTP). Sin Prisma.
-- Local/offline: expo-sqlite + Drizzle ORM (móvil) / LocalStore en memoria (web,
-  pendiente IndexedDB). La base local es la fuente de verdad de la UI; Neon es el
-  destino de sincronización.
+- Local/offline: expo-sqlite + Drizzle ORM (móvil) / LocalStore en memoria con
+  espejo en localStorage (web, pendiente IndexedDB). La base local es la fuente
+  de verdad de la UI; Neon es el destino de sincronización.
 - Datos remotos: Drizzle en servidor + TanStack Query en cliente. Estado de UI:
   Zustand.
 - Formularios y validación: react-hook-form + zod. Los esquemas zod viven en
@@ -48,7 +48,7 @@ pnpm mobile:android    # build de desarrollo Android (pendiente)
 pnpm mobile:ios        # build de desarrollo iOS (pendiente)
 pnpm typecheck         # tsc --noEmit en todo el monorepo
 pnpm lint
-pnpm test              # vitest (shared) + jest-expo (mobile, pendiente)
+pnpm test              # vitest (shared + web) + jest-expo (mobile, pendiente)
 pnpm db:deploy         # neon deploy: aplica neon.ts (Auth, Data API, bucket) a la rama enlazada
 pnpm db:env            # neon env pull → apps/web/.env.local (DATABASE_URL, NEON_AUTH_*, AWS_*)
 pnpm db:generate       # drizzle-kit generate (migración desde el esquema)
@@ -79,18 +79,21 @@ apps/web/              app móvil-first en Next.js 16 (materializa el diseño
                        "GiroWeg Movil" de Claude Design) · React 19, HeroUI v3,
                        Tailwind 4, lucide-react, i18next, zustand
   app/                 rutas App Router (solo composición): (auth) onboarding,
-                       login, login/verify, vehicles · (tabs) home, history,
-                       expenses, profile · (flow) shift/start|trip|end,
-                       history/[tripId], maintenance
+                       login, login/verify, welcome · (tabs) home, vehicles,
+                       history, profile · (flow) vehicles/new, vehicles/[id],
+                       vehicles/[id]/edit, readings/new, readings/[id] ·
+                       api/onboarding, api/sync, api/health, api/auth
   app/globals.css      mapea los tokens --gw-* a utilidades Tailwind y a los
                        tokens semánticos de HeroUI; sombras como @utility
-  src/features/<x>/    auth, onboarding, vehicles, readings, trips, expenses,
-                       maintenance, profile, home, sync
+  src/features/<x>/    auth, onboarding, vehicles, readings, profile, home, sync
     components/ hooks/ screens/ repository.ts
   src/db/              LocalStore en memoria + outbox (mismo contrato que
-                       tendrá SQLite/IndexedDB) y fixtures de demo (seed.ts)
+                       tendrá SQLite/IndexedDB), espejo en localStorage
+                       (persistence.ts), hooks de lectura y rows.ts (servidor:
+                       filas de Neon → esquemas zod)
   src/ui/              sistema de diseño: Button/IconButton (HeroUI), Card,
-                       chips, Figure, Progress/Ring, TopBar, BottomNav, estados
+                       chips, Field (inputs), Figure, TopBar, BottomNav
+                       flotante con acción central, estados
   src/i18n/            i18next, textos en locales/es.json
   src/theme/           ThemeProvider (dark | light | auto) + script anti-flash
 apps/mobile/           (pendiente) Expo
@@ -161,6 +164,12 @@ escribir datos.
 - Las fotos se comprimen (lado máximo 1600 px, JPEG 0.7), se guardan en disco y
   se suben después a un bucket privado: `{org_id}/{vehicle_id}/{reading_id}.jpg`.
 - La UI muestra siempre el estado de sincronización de cada registro.
+- Web: `src/features/sync/engine.ts` hace push del outbox a `POST /api/sync`
+  (upsert idempotente; en `vehicles` gana `updated_at`; en `readings` solo
+  cambian `voided_at`, `void_reason` y `photo_path`) y pull de `GET /api/sync`,
+  que reemplaza las tablas locales conservando lo pendiente. Lo arranca
+  `SyncBoot` al cargar, al volver la red, tras cada escritura y cada minuto.
+  El servidor fija `org_id` y `created_by` a partir del usuario verificado.
 
 ## Seguridad
 
@@ -234,6 +243,10 @@ escribir datos.
    exportar CSV.
 2. Viajes con GPS, combustible y gastos, mantenimiento con recordatorios, PDF.
 3. Panel web: dashboard, tabla de vehículos, usuarios y permisos, reportes.
+
+Decisión de producto (2026-09): la app web cubre solo vehículos y lecturas.
+Gastos, mantenimiento y viajes con GPS no se exponen en la interfaz; sus tablas
+y esquemas siguen en `packages/db` y `packages/shared` para la fase 2.
 
 No implementes nada de una fase posterior sin que se pida. Si una tarea es
 ambigua o choca con una regla de este archivo, pregunta antes de escribir código.

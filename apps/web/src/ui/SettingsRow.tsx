@@ -10,7 +10,7 @@ interface SettingsRowProps {
   label: string;
   /** Right side: value text, a control, etc. */
   trailing?: ReactNode;
-  onPress?: () => void;
+  onPress?: (() => void) | undefined;
   last?: boolean;
 }
 

@@ -33,7 +33,13 @@ export const readingInputSchema = z
     value: readingValueSchema,
     recordedAt: timestampSchema,
     source: readingSourceSchema,
-    note: z.string().trim().max(500).nullable().default(null),
+    note: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .default(null)
+      .transform((note) => (note === "" ? null : note)),
     odometerReset: z.boolean().default(false),
   })
   .refine((input) => !input.odometerReset || input.note !== null, {

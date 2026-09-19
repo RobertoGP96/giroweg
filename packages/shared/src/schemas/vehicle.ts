@@ -32,7 +32,7 @@ export const vehicleSchema = z.object({
 });
 export type Vehicle = z.infer<typeof vehicleSchema>;
 
-/** Form input for creating a vehicle. Ids and timestamps are set by the repository. */
+/** Input for creating or editing a vehicle. Ids and timestamps are set by the repository. */
 export const vehicleInputSchema = vehicleSchema.pick({
   type: true,
   name: true,
@@ -44,3 +44,49 @@ export const vehicleInputSchema = vehicleSchema.pick({
   initialValue: true,
 });
 export type VehicleInput = z.infer<typeof vehicleInputSchema>;
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((text) => (text === "" ? null : text));
+
+/**
+ * What the vehicle form collects: every field as text, as the inputs hold it.
+ * Parsing yields a `VehicleInput`. Issue messages are keys the UI translates.
+ */
+export const vehicleFormSchema = z.object({
+  type: vehicleTypeSchema,
+  name: z.string().trim().min(1, "required").max(80, "tooLong"),
+  brand: optionalText(60),
+  model: optionalText(60),
+  year: z
+    .string()
+    .trim()
+    .transform((text, ctx) => {
+      if (text === "") return null;
+      const year = Number(text);
+      if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+        ctx.addIssue({ code: "custom", message: "year" });
+        return z.NEVER;
+      }
+      return year;
+    }),
+  plate: optionalText(16).transform((plate) => (plate === null ? null : plate.toUpperCase())),
+  unit: unitSchema,
+  initialValue: z
+    .string()
+    .trim()
+    .transform((text, ctx) => {
+      if (text === "") return 0;
+      const value = Number(text.replace(",", "."));
+      if (!Number.isFinite(value) || value < 0) {
+        ctx.addIssue({ code: "custom", message: "initialValue" });
+        return z.NEVER;
+      }
+      return Math.round(value * 10) / 10;
+    }),
+});
+export type VehicleFormValues = z.input<typeof vehicleFormSchema>;
+export type VehicleFormOutput = z.output<typeof vehicleFormSchema>;

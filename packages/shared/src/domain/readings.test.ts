@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   canVoid,
   currentOdometer,
+  distanceTravelled,
+  odometerAt,
+  readingDeltas,
   validateReading,
   type ReadingLike,
 } from "./readings";
@@ -93,6 +96,57 @@ describe("currentOdometer", () => {
 
   it("falls back to the initial value without readings", () => {
     expect(currentOdometer([], 1_200)).toBe(1_200);
+  });
+});
+
+describe("odometerAt", () => {
+  it("returns the last valid reading on or before the instant", () => {
+    expect(odometerAt(readings, "2026-09-17T08:00:00Z", 0)).toBe(34_209);
+    expect(odometerAt(readings, "2026-09-17T07:59:59Z", 0)).toBe(34_000);
+  });
+
+  it("falls back to the initial value before the first reading", () => {
+    expect(odometerAt(readings, "2026-09-01T00:00:00Z", 500)).toBe(500);
+  });
+});
+
+describe("distanceTravelled", () => {
+  it("sums the increments inside the window from the baseline reading", () => {
+    expect(distanceTravelled(readings, "2026-09-10T08:00:00Z", "2026-09-18T23:59:59Z")).toBe(301);
+    expect(distanceTravelled(readings, "2026-09-17T08:00:00Z", "2026-09-18T23:59:59Z")).toBe(92);
+  });
+
+  it("starts from the first reading in the window when there is no baseline", () => {
+    expect(distanceTravelled(readings, "2026-09-01T00:00:00Z", "2026-09-17T23:59:59Z")).toBe(209);
+  });
+
+  it("ignores voided readings and odometer changes", () => {
+    const withReset: ReadingLike[] = [
+      ...readings,
+      { id: "reset", value: 12, recordedAt: "2026-09-19T08:00:00Z", odometerReset: true },
+      { id: "d", value: 40, recordedAt: "2026-09-20T08:00:00Z" },
+    ];
+    expect(distanceTravelled(withReset, "2026-09-18T00:00:00Z", "2026-09-21T00:00:00Z")).toBe(92 + 28);
+  });
+
+  it("is zero outside the readings", () => {
+    expect(distanceTravelled(readings, "2026-10-01T00:00:00Z", "2026-10-31T00:00:00Z")).toBe(0);
+    expect(distanceTravelled([], "2026-09-01T00:00:00Z", "2026-09-30T00:00:00Z")).toBe(0);
+  });
+});
+
+describe("readingDeltas", () => {
+  it("gives each valid reading its increment over the previous one", () => {
+    const withReset: ReadingLike[] = [
+      ...readings,
+      { id: "reset", value: 12, recordedAt: "2026-09-19T08:00:00Z", odometerReset: true },
+    ];
+    const deltas = readingDeltas(withReset);
+    expect(deltas.get("a")).toBeNull();
+    expect(deltas.get("b")).toBe(209);
+    expect(deltas.get("c")).toBe(92);
+    expect(deltas.get("reset")).toBeNull();
+    expect(deltas.has("void")).toBe(false);
   });
 });
 

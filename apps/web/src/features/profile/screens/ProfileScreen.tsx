@@ -1,45 +1,52 @@
 "use client";
 
 import { Avatar } from "@heroui/react";
-import { Bell, Camera, MapPin, Moon, RefreshCw, Wrench } from "lucide-react";
+import { Globe, Moon, RefreshCw, Ruler } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/auth/client";
 import { useSessionUser } from "@/auth/useSessionUser";
-import { currentUser } from "@/db/seed";
-import { formatNumber, formatOdometer, formatTime } from "@/lib/format";
+import { getStore } from "@/db/client";
+import { useStoreVersion } from "@/db/hooks";
+import { clearPersistedState } from "@/db/persistence";
+import { formatTime } from "@/lib/format";
+import { useAsync } from "@/lib/useAsync";
 import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";
+import { readingsRepository } from "@/features/readings/repository";
+import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
+import { syncNow } from "@/features/sync/engine";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
-import { dayKey, useTrips } from "@/features/trips/hooks/useTrips";
-import { useActiveVehicle } from "@/features/vehicles/hooks/useVehicles";
-import { Card, OfflineBanner, Screen, SectionLabel, Segmented, SettingsRow, Toggle } from "@/ui";
+import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
+import { useSyncStatus } from "@/features/sync/store";
+import { useVehicles } from "@/features/vehicles/hooks/useVehicles";
+import { Card, OfflineBanner, Screen, SectionLabel, Segmented, SettingsRow, Spinner } from "@/ui";
 
 export function ProfileScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const online = useOnlineStatus();
+  const queue = useSyncQueue();
+  const { syncing, lastSyncAt } = useSyncStatus();
   const { preference, setPreference } = useTheme();
-  const active = useActiveVehicle();
-  const trips = useTrips(active.data?.vehicle.id);
   const { user } = useSessionUser();
-  const [backgroundGps, setBackgroundGps] = useState(true);
-  const [autoOdometer, setAutoOdometer] = useState(true);
-  const [reminders, setReminders] = useState(false);
+  const vehicles = useVehicles("active");
+  const version = useStoreVersion();
+  const monthReadings = useAsync(
+    () => readingsRepository.countSince(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+    [version],
+  );
   const [signingOut, setSigningOut] = useState(false);
 
   const signOut = async () => {
     setSigningOut(true);
+    // Deliver what is still local before leaving; the account's data stays on the server.
+    if (online) await syncNow().catch(() => undefined);
     await authClient.signOut();
+    getStore().reset();
+    clearPersistedState();
     router.replace("/login");
   };
-
-  const month = dayKey(new Date().toISOString()).slice(0, 7);
-  const monthTrips = (trips.data ?? []).filter((trip) => dayKey(trip.trip.startedAt).startsWith(month));
-  const monthDistance = monthTrips.reduce((sum, trip) => sum + trip.distance, 0);
-  const withGps = monthTrips.filter((trip) => trip.gps !== null);
-  const accuracy = withGps.length > 0 ? withGps.filter((trip) => !trip.needsReview).length / withGps.length : 1;
-  const lastSync = trips.data?.[0]?.trip.endedAt;
 
   const themeOptions: ReadonlyArray<{ value: ThemePreference; label: string }> = [
     { value: "dark", label: t("profile.themeDark") },
@@ -47,36 +54,44 @@ export function ProfileScreen() {
     { value: "auto", label: t("profile.themeAuto") },
   ];
 
+  const syncLabel = !online
+    ? t("profile.syncOffline")
+    : syncing
+      ? t("profile.syncing")
+      : queue.length > 0
+        ? t("profile.syncPending", { count: queue.length })
+        : lastSyncAt
+          ? t("profile.syncUpToDate", { time: formatTime(lastSyncAt) })
+          : t("profile.syncNever");
+
   return (
     <>
-      {!online && <OfflineBanner pendingCount={3} className="mt-2" />}
+      {!online && <OfflineBanner pendingCount={queue.length} className="mt-2" />}
       <Screen>
         <header className="flex min-h-14 items-center gap-3.5">
           <Avatar size="lg" className="size-14 bg-surface-2 font-display text-figure-sm font-semibold text-text">
             <Avatar.Fallback>{user?.initials ?? "·"}</Avatar.Fallback>
           </Avatar>
-          <div>
-            <h1 className="font-display text-card-title font-semibold">{user?.name || user?.email || " "}</h1>
-            <div className="text-secondary text-muted">
-              {user?.email && user.name ? user.email : t("profile.role", { role: currentUser.role, fleet: currentUser.fleet })}
-            </div>
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-card-title font-semibold">{user?.name || user?.email || " "}</h1>
+            <div className="truncate text-secondary text-muted">{user?.name ? user.email : t("auth.personalOrg")}</div>
           </div>
         </header>
 
         <div className="grid grid-cols-3 gap-2.5">
           <Card padding="none" className="px-3.5 py-3">
-            <div className="text-nav text-muted">{t("profile.thisMonth")}</div>
-            <div className="font-display text-card-title font-semibold">
-              {formatOdometer(monthDistance)} <span className="text-nav text-muted">{active.data?.vehicle.unit ?? "km"}</span>
+            <div className="text-nav text-muted">{t("profile.vehicles")}</div>
+            <div className="font-display text-card-title font-semibold">{vehicles.data?.length ?? 0}</div>
+          </Card>
+          <Card padding="none" className="px-3.5 py-3">
+            <div className="text-nav text-muted">{t("profile.monthReadings")}</div>
+            <div className="font-display text-card-title font-semibold">{monthReadings.data ?? 0}</div>
+          </Card>
+          <Card padding="none" className="px-3.5 py-3">
+            <div className="text-nav text-muted">{t("profile.pending")}</div>
+            <div className={`font-display text-card-title font-semibold ${queue.length > 0 ? "text-amber-text" : "text-lime-text"}`}>
+              {queue.length}
             </div>
-          </Card>
-          <Card padding="none" className="px-3.5 py-3">
-            <div className="text-nav text-muted">{t("profile.shifts")}</div>
-            <div className="font-display text-card-title font-semibold">{monthTrips.length}</div>
-          </Card>
-          <Card padding="none" className="px-3.5 py-3">
-            <div className="text-nav text-muted">{t("profile.accuracy")}</div>
-            <div className="font-display text-card-title font-semibold text-lime-text">{formatNumber(accuracy * 100, 0)} %</div>
           </Card>
         </div>
 
@@ -88,42 +103,25 @@ export function ProfileScreen() {
             trailing={<Segmented label={t("profile.theme")} value={preference} options={themeOptions} onChange={setPreference} />}
           />
           <SettingsRow
-            icon={<MapPin className="size-5.5" strokeWidth={2} />}
-            label={t("profile.backgroundGps")}
-            trailing={<Toggle label={t("profile.backgroundGps")} isSelected={backgroundGps} onChange={setBackgroundGps} />}
-          />
-          <SettingsRow
-            icon={<Camera className="size-5.5" strokeWidth={2} />}
-            label={t("profile.autoOdometer")}
-            trailing={<Toggle label={t("profile.autoOdometer")} isSelected={autoOdometer} onChange={setAutoOdometer} />}
-          />
-          <SettingsRow
-            icon={<Bell className="size-5.5" strokeWidth={2} />}
-            label={t("profile.maintenanceReminders")}
-            trailing={<Toggle label={t("profile.maintenanceReminders")} isSelected={reminders} onChange={setReminders} />}
-          />
-          <SettingsRow
             icon={<RefreshCw className="size-5.5" strokeWidth={2} />}
             label={t("profile.sync")}
             trailing={
-              <span className="text-secondary font-semibold text-lime-text">
-                {t("profile.syncUpToDate", { time: lastSync ? formatTime(lastSync) : "—" })}
+              <span className={`flex items-center gap-2 text-secondary font-semibold ${queue.length > 0 || !online ? "text-amber-text" : "text-lime-text"}`}>
+                {syncing && <Spinner />}
+                {syncLabel}
               </span>
             }
+            onPress={online ? () => void syncNow() : undefined}
             last
           />
         </Card>
 
         <Card padding="none" className="flex flex-col">
-          <SettingsRow label={t("profile.units")} trailing={<span className="text-body text-muted">{t("profile.unitsValue")}</span>} />
-          <SettingsRow label={t("profile.language")} trailing={<span className="text-body text-muted">{t("profile.languageValue")}</span>} />
-          <SettingsRow
-            icon={<Wrench className="size-5.5" strokeWidth={2} />}
-            label={t("profile.maintenance")}
-            onPress={() => router.push("/maintenance")}
-            last
-          />
+          <SettingsRow icon={<Ruler className="size-5.5" strokeWidth={2} />} label={t("profile.units")} trailing={<span className="text-body text-muted">{t("profile.unitsValue")}</span>} />
+          <SettingsRow icon={<Globe className="size-5.5" strokeWidth={2} />} label={t("profile.language")} trailing={<span className="text-body text-muted">{t("profile.languageValue")}</span>} last />
         </Card>
+
+        {queue.length > 0 && <SyncQueueCard entries={queue} online={online} />}
 
         <button
           type="button"

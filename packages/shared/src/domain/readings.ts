@@ -34,7 +34,7 @@ export interface NewReadingInput {
 const isVoided = (r: ReadingLike): boolean => Boolean(r.voidedAt);
 
 /** Valid readings sorted by recordedAt ascending. */
-export const validReadings = (readings: ReadingLike[]): ReadingLike[] =>
+export const validReadings = <T extends ReadingLike>(readings: T[]): T[] =>
   readings
     .filter((r) => !isVoided(r))
     .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
@@ -86,6 +86,63 @@ export const currentOdometer = (
   const valid = validReadings(readings);
   const last = valid[valid.length - 1];
   return last ? last.value : initialValue;
+};
+
+/** Odometer in force at `at`: the last valid reading on or before it, else the initial value. */
+export const odometerAt = (
+  readings: ReadingLike[],
+  at: string,
+  initialValue: number,
+): number => {
+  const before = validReadings(readings).filter((r) => r.recordedAt <= at);
+  const last = before[before.length - 1];
+  return last ? last.value : initialValue;
+};
+
+/**
+ * Distance travelled between two instants, derived from the readings only.
+ * Sums the increments between consecutive valid readings inside the window,
+ * taking the last reading on or before `from` as the baseline. An odometer
+ * change contributes nothing (the counter restarted), so the result is never
+ * negative. Without a baseline, the first reading in the window starts it.
+ */
+export const distanceTravelled = (
+  readings: ReadingLike[],
+  from: string,
+  to: string,
+): number => {
+  const valid = validReadings(readings);
+  let baseline = -1;
+  for (let i = 0; i < valid.length; i += 1) {
+    const reading = valid[i];
+    if (reading && reading.recordedAt <= from) baseline = i;
+  }
+  let total = 0;
+  for (let i = Math.max(baseline, 0) + 1; i < valid.length; i += 1) {
+    const previous = valid[i - 1];
+    const current = valid[i];
+    if (!previous || !current || current.recordedAt > to) break;
+    if (!current.odometerReset) total += Math.max(current.value - previous.value, 0);
+  }
+  return total;
+};
+
+/**
+ * Increment of each valid reading over the previous valid one, keyed by id.
+ * The first reading and an odometer change have no increment (null); voided
+ * readings are not included.
+ */
+export const readingDeltas = (readings: ReadingLike[]): Map<string, number | null> => {
+  const deltas = new Map<string, number | null>();
+  const valid = validReadings(readings);
+  valid.forEach((reading, index) => {
+    const previous = index > 0 ? valid[index - 1] : undefined;
+    deltas.set(
+      reading.id,
+      previous && !reading.odometerReset ? reading.value - previous.value : null,
+    );
+  });
+  return deltas;
 };
 
 /** Readings are never edited: voiding requires a reason. */

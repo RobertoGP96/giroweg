@@ -3,8 +3,8 @@
 Registro de kilometraje fiable para vehículos de todo tipo: motos, autos,
 camionetas, furgonetas, camiones, bicicletas y maquinaria. Cada lectura del
 odómetro queda en un historial auditable, rápido de capturar y disponible sin
-conexión; los viajes con GPS, los gastos y el mantenimiento cuelgan de ese
-historial.
+conexión. El alcance actual es dar de alta vehículos y registrar sus lecturas;
+viajes, gastos y mantenimiento quedan para una fase posterior.
 
 ## Stack
 
@@ -19,13 +19,16 @@ historial.
 ## Estructura
 
 ```
-apps/web/           app Next.js (App Router). Rutas: onboarding, login, vehicles,
-                    home, history, expenses, profile, shift/start|trip|end,
-                    history/[tripId], maintenance, api/health
-  src/features/     auth, vehicles, readings, trips, expenses, maintenance, sync…
+apps/web/           app Next.js (App Router). Rutas: onboarding, login, welcome,
+                    home, vehicles, vehicles/new, vehicles/[id], vehicles/[id]/edit,
+                    history, readings/new, readings/[id], profile,
+                    api/onboarding, api/sync, api/health
+  src/features/     auth, vehicles, readings, home, profile, sync
                     (pantallas → hooks → repository)
-  src/ui/           sistema de diseño (botones, tarjetas, cifras, estados)
-  src/db/           almacén local en memoria con outbox (fuente de verdad de la UI)
+  src/ui/           sistema de diseño (botones, campos, tarjetas, cifras, estados,
+                    barra inferior flotante)
+  src/db/           almacén local con outbox, espejo en localStorage (fuente de
+                    verdad de la UI); el motor de sync lo empuja a /api/sync
 packages/shared/    tokens.ts · domain/ (reglas) · schemas/ (zod)
 packages/db/        src/schema (tablas + políticas RLS) · migrations/ · createDb()
 neon.ts             servicios de Neon por rama
@@ -65,12 +68,18 @@ Con `?state=empty|error|loading` en `/history` se fuerzan los estados de
 pantalla para revisión de diseño. `GET /api/health` confirma la conexión con
 Neon y las migraciones aplicadas.
 
+Flujo de uso: entra con tu correo (código OTP), añade un vehículo (tipo, nombre,
+placa, unidad y lectura inicial) y registra lecturas desde el botón central de
+la barra inferior. Todo se guarda primero en el dispositivo y se sincroniza con
+Neon en segundo plano; cada registro muestra su estado de sincronización y las
+lecturas se anulan con motivo, nunca se editan.
+
 ## Comandos
 
 ```bash
 pnpm typecheck                        # tsc en todo el monorepo
 pnpm lint
-pnpm test                             # vitest (packages/shared)
+pnpm test                             # vitest (packages/shared y apps/web)
 pnpm web:build                        # next build
 pnpm db:generate                      # migración desde el esquema Drizzle
 pnpm db:migrate

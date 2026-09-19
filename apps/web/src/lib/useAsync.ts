@@ -12,8 +12,8 @@ const LOADING: AsyncState<never> = { status: "loading", data: undefined, error: 
 /**
  * Minimal async loader for repository reads: loading → success | error, with
  * reload. Screens use it to implement their loading / error states.
- * The result is keyed by the request identity, so a new request shows the
- * loading state without an extra render cycle.
+ * A new request (deps or reload) keeps showing the last successful data
+ * while it loads, so local writes and syncs never flash a skeleton.
  */
 export const useAsync = <T>(load: () => Promise<T>, deps: ReadonlyArray<unknown>) => {
   const [version, setVersion] = useState(0);
@@ -40,7 +40,12 @@ export const useAsync = <T>(load: () => Promise<T>, deps: ReadonlyArray<unknown>
   }, [request]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  const state: AsyncState<T> = result?.request === request ? result.state : LOADING;
+  const state: AsyncState<T> =
+    result?.request === request
+      ? result.state
+      : result?.state.status === "success"
+        ? result.state
+        : LOADING;
 
   return { ...state, reload };
 };

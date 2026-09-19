@@ -26,9 +26,6 @@
   --color-map: var(--gw-map);
   --color-map-line: var(--gw-map-line);
   --color-ink: var(--gw-ink);
-  /* Digits over the camera preview: always light, in both themes. */
-  --color-camera-text: #F2F4F7;
-
 
   /* Typography */
   --font-display: var(--font-space-grotesk), "Space Grotesk", sans-serif;
@@ -73,6 +70,11 @@
   /* Layout */
   --container-app: 430px;
   --spacing-screen: 20px;
+  /* Floating tab bar: height, gap to the screen edge and room screens keep under it. */
+  --spacing-nav: 64px;
+  --spacing-nav-offset: 16px;
+  --spacing-nav-clearance: 100px;
+  --container-nav: 390px;
 }
 
 @layer base {
@@ -142,8 +144,13 @@
   box-shadow: var(--gw-shadow);
 }
 
-@utility shadow-sheet {
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+/* Floating tab bar and its raised primary action. */
+@utility shadow-nav {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+@utility shadow-fab {
+  box-shadow: 0 6px 18px color-mix(in oklab, var(--gw-lime) 45%, transparent);
 }
 
 /*
@@ -215,16 +222,4 @@
   animation: gw-pulse 1s infinite;
 }
 
-/* Camera viewfinder vignette used by the odometer capture frame. */
-@utility bg-vignette {
-  background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.45) 100%);
-}
 
-/* Map grid used by the trip screens. */
-@utility bg-map-grid {
-  background-color: var(--gw-map);
-  background-image:
-    linear-gradient(var(--gw-map-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--gw-map-line) 1px, transparent 1px);
-  background-size: 44px 44px;
-}
