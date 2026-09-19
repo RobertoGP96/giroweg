@@ -6,7 +6,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalSession } from "@/db/hooks";
 import { useAsync } from "@/lib/useAsync";
-import { Button, Card, ErrorState, ListSkeleton, Screen, TopBar } from "@/ui";
+import { syncNow } from "@/features/sync/engine";
+import { useSyncStatus } from "@/features/sync/store";
+import { AlertCard, Button, Card, ErrorState, ListSkeleton, Screen, TopBar } from "@/ui";
 import { VehicleForm } from "../components/VehicleForm";
 import { selectVehicle, vehiclesRepository } from "../repository";
 
@@ -19,6 +21,7 @@ export function VehicleFormScreen({ vehicleId }: VehicleFormScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const session = useLocalSession();
+  const { syncing, lastError } = useSyncStatus();
   const editing = vehicleId !== undefined;
   const existing = useAsync(async () => {
     if (!vehicleId) return null;
@@ -44,7 +47,18 @@ export function VehicleFormScreen({ vehicleId }: VehicleFormScreenProps) {
 
       {(!editing || existing.status === "success") && (
         <>
-          {!session && <p className="text-secondary text-muted">{t("vehicles.form.errors.noSession")}</p>}
+          {!session && (
+            <AlertCard
+              emphasized={lastError !== null}
+              title={t("vehicles.form.errors.noSession")}
+              body={lastError ? t("sync.bootstrapFailed", { error: lastError }) : t("sync.bootstrapPending")}
+              trailing={
+                <Button variant="outline" size="md" className="w-auto px-4" isDisabled={syncing} isPending={syncing} onPress={() => void syncNow()}>
+                  {t("common.retry")}
+                </Button>
+              }
+            />
+          )}
           <VehicleForm
             vehicle={existing.data?.vehicle}
             unitLocked={(existing.data?.readingCount ?? 0) > 0}

@@ -4,11 +4,13 @@ import type { ReadingRow, VehicleRow } from "@giroweg/db";
 import type { Reading, Vehicle } from "@giroweg/shared/schemas";
 
 /**
- * Postgres returns timestamptz as text ("2026-09-19 12:34:56.789+00"); the
- * app speaks ISO 8601 UTC everywhere (domain rule 5). Already-ISO input
- * passes through unchanged.
+ * The app speaks ISO 8601 UTC everywhere (domain rule 5). Drizzle types
+ * `timestamptz` columns as strings, but the Neon HTTP driver hands them
+ * over parsed as `Date`; raw Postgres text ("2026-09-19 12:34:56.789+00")
+ * and ISO input are normalised too.
  */
-export const toIso = (value: string): string => {
+export const toIso = (value: string | Date): string => {
+  if (value instanceof Date) return value.toISOString();
   const normalized = value.includes("T")
     ? value
     : value.replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00");
@@ -16,6 +18,8 @@ export const toIso = (value: string): string => {
   if (Number.isNaN(date.getTime())) throw new Error(`Invalid timestamp from database: ${value}`);
   return date.toISOString();
 };
+
+const nullableIso = (value: string | Date | null): string | null => (value === null ? null : toIso(value));
 
 export const vehicleFromRow = (row: VehicleRow): Vehicle => ({
   id: row.id,
@@ -31,8 +35,8 @@ export const vehicleFromRow = (row: VehicleRow): Vehicle => ({
   plate: row.plate,
   photoPath: row.photoPath,
   unit: row.unit,
-  initialValue: row.initialValue,
-  archivedAt: row.archivedAt === null ? null : toIso(row.archivedAt),
+  initialValue: Number(row.initialValue),
+  archivedAt: nullableIso(row.archivedAt),
 });
 
 export const readingFromRow = (row: ReadingRow): Reading => ({
@@ -42,13 +46,13 @@ export const readingFromRow = (row: ReadingRow): Reading => ({
   updatedAt: toIso(row.updatedAt),
   syncedAt: toIso(row.syncedAt),
   vehicleId: row.vehicleId,
-  value: row.value,
+  value: Number(row.value),
   recordedAt: toIso(row.recordedAt),
   source: row.source,
   photoPath: row.photoPath,
   note: row.note,
   createdBy: row.createdBy,
-  voidedAt: row.voidedAt === null ? null : toIso(row.voidedAt),
+  voidedAt: nullableIso(row.voidedAt),
   voidReason: row.voidReason,
   odometerReset: row.odometerReset,
 });

@@ -27,7 +27,7 @@ export function ProfileScreen() {
   const router = useRouter();
   const online = useOnlineStatus();
   const queue = useSyncQueue();
-  const { syncing, lastSyncAt } = useSyncStatus();
+  const { syncing, lastSyncAt, lastError } = useSyncStatus();
   const { preference, setPreference } = useTheme();
   const { user } = useSessionUser();
   const vehicles = useVehicles("active");
@@ -121,6 +121,11 @@ export function ProfileScreen() {
           <SettingsRow icon={<Globe className="size-5.5" strokeWidth={2} />} label={t("profile.language")} trailing={<span className="text-body text-muted">{t("profile.languageValue")}</span>} last />
         </Card>
 
+        {lastError && (
+          <p role="status" className="text-label leading-relaxed text-amber-text">
+            {t("sync.lastError", { error: lastError })}
+          </p>
+        )}
         {queue.length > 0 && <SyncQueueCard entries={queue} online={online} />}
 
         <button

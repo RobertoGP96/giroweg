@@ -239,6 +239,9 @@
       "readings": "Lectura"
     },
     "retry": "Reintentar ahora",
+    "bootstrapPending": "Descargando tu cuenta desde el servidor…",
+    "bootstrapFailed": "No se pudo conectar con el servidor ({{error}}). Se reintenta solo cada pocos segundos.",
+    "lastError": "Última sincronización con error: {{error}}",
     "errors": {
       "unknown": "No se pudo enviar. Se reintentará.",
       "reading_below_previous": "Rechazada por el servidor: es menor que la lectura anterior.",

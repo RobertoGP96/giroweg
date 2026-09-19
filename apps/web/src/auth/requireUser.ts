@@ -23,11 +23,12 @@ const unauthorized = (code: string): AuthResult => ({
 });
 
 /**
- * Identifies the caller of an API route. Both the session cookie and the
- * bearer JWT (verified against the project JWKS) must agree on the user;
- * the database owner then runs every query scoped to that user's
- * organization (see CLAUDE.md, "Seguridad": Neon's JWT-bound role cannot
- * validate Neon Auth's EdDSA tokens yet).
+ * Identifies the caller of an API route from the Neon Auth session cookie,
+ * which the Neon Auth service validates server-side. When the request also
+ * carries a bearer JWT it is verified against the project JWKS and must
+ * belong to the same user (it is what the JWT-bound database role will use
+ * once Neon accepts Neon Auth's EdDSA tokens; see CLAUDE.md, "Seguridad").
+ * The database owner then runs every query scoped to the user's organization.
  */
 export const authenticate = async (request: Request): Promise<AuthResult> => {
   const { data: session } = await getAuth().getSession();
@@ -35,21 +36,21 @@ export const authenticate = async (request: Request): Promise<AuthResult> => {
   if (!sessionUser) return unauthorized("unauthenticated");
 
   const token = readBearerToken(request);
-  if (!token) return unauthorized("missing_token");
-
-  let verifiedId: string;
-  try {
-    verifiedId = (await verifyToken(token)).id;
-  } catch {
-    return unauthorized("invalid_token");
+  if (token) {
+    let verifiedId: string;
+    try {
+      verifiedId = (await verifyToken(token)).id;
+    } catch {
+      return unauthorized("invalid_token");
+    }
+    if (verifiedId !== sessionUser.id) return unauthorized("token_mismatch");
   }
-  if (verifiedId !== sessionUser.id) return unauthorized("token_mismatch");
 
   const db = getServerDb();
   const memberships = await db
     .select({ orgId: schema.memberships.orgId })
     .from(schema.memberships)
-    .where(eq(schema.memberships.userId, verifiedId))
+    .where(eq(schema.memberships.userId, sessionUser.id))
     .orderBy(
       sql`case ${schema.memberships.role} when 'owner' then 0 when 'admin' then 1 else 2 end`,
       asc(schema.memberships.createdAt),
@@ -58,7 +59,7 @@ export const authenticate = async (request: Request): Promise<AuthResult> => {
 
   return {
     user: {
-      id: verifiedId,
+      id: sessionUser.id,
       email: sessionUser.email ?? null,
       name: sessionUser.name?.trim() || null,
       orgId: memberships[0]?.orgId ?? null,
