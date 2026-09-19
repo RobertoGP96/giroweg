@@ -13,7 +13,8 @@
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "verify": "node scripts/verify-rules.mjs ../../apps/web/.env.local"
+    "verify": "node scripts/verify-rules.mjs ../../apps/web/.env.local",
+    "verify:auth": "node scripts/verify-auth.mjs ../../apps/web/.env.local"
   },
   "dependencies": {
     "@giroweg/shared": "workspace:*",
@@ -24,6 +25,7 @@
     "@types/node": "~26.6.1",
     "dotenv": "^17.2.0",
     "drizzle-kit": "^0.31.10",
+    "jose": "^6.0.0",
     "typescript": "^5.9.3"
   }
 }

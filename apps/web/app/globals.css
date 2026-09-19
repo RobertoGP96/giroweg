@@ -146,6 +146,51 @@
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
 }
 
+/*
+ * Route transitions (React View Transitions, enabled in next.config.ts).
+ * Pages fade and slide 8 px in 180 ms; the exiting page fades out faster so
+ * the incoming content is readable immediately. Disabled for reduced motion.
+ */
+@keyframes gw-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gw-page-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(.gw-page) {
+  animation: gw-page-out 120ms ease-in both;
+}
+
+::view-transition-new(.gw-page) {
+  animation: gw-page-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(.gw-page),
+  ::view-transition-new(.gw-page) {
+    animation: none;
+  }
+}
+
 @keyframes gw-spin {
   to {
     transform: rotate(360deg);

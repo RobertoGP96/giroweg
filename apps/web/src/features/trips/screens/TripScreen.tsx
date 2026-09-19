@@ -29,6 +29,7 @@ export function TripScreen() {
   // Without a shift in progress this screen has nothing to show.
   useEffect(() => {
     if (step === "idle") router.replace("/home");
+    else router.prefetch("/shift/end");
   }, [step, router]);
 
   const progress = Math.min(km / PLANNED_DISTANCE_KM, 1);

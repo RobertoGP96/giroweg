@@ -32,6 +32,7 @@ export function BottomNav() {
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-1 pb-4 text-nav",
+              "transition-[color,transform] duration-150 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100",
               "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lime",
               active ? "font-semibold text-lime-text" : "font-medium text-muted",
             )}

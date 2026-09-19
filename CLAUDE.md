@@ -164,12 +164,27 @@ escribir datos.
 
 ## Seguridad
 
+- Autenticación: Neon Auth (Better Auth gestionado) con OTP por correo para
+  registro e inicio de sesión (`authClient.emailOtp.sendVerificationOtp` +
+  `signIn.emailOtp`; un correo desconocido crea la cuenta). Servidor en
+  `src/auth/server.ts` (`createNeonAuth`), proxy `/api/auth/[...path]`,
+  protección de rutas en `proxy.ts` (todo salvo onboarding, login y salud),
+  cliente en `src/auth/client.ts` y `useSessionUser()`. Usuarios en el esquema
+  `neon_auth`; `memberships.user_id` guarda el `sub` del JWT.
 - RLS activado en todas las tablas, con políticas basadas en `memberships`
   (`is_org_member(org_id)` / `is_org_admin(org_id)` comparan `auth.user_id()`
   del JWT de Neon Auth). Las políticas se declaran en el esquema Drizzle con
   `orgPolicies()` para que salgan en la misma migración que la tabla. El rol
   `authenticated` es el del usuario final; el owner de la base (sync, admin)
   omite RLS y solo se usa en servidor.
+- Limitación actual (2026-09): Neon no valida los JWT EdDSA de Neon Auth en el
+  rol `authenticated` ("jwk not found", tanto por driver `authToken` como por
+  Data API). Mientras tanto, las rutas de servidor verifican el JWT con jose
+  contra `NEON_AUTH_JWKS_URL` (`src/auth/verifyToken.ts`) y ejecutan como
+  owner **siempre filtrando por el `user_id` verificado** (p. ej.
+  `create_organization_for(user_id, name)`, solo invocable por el owner).
+  `pnpm --filter @giroweg/db verify:auth` comprueba ambas rutas; cuando la
+  JWT-bound pase, migrar las rutas a `createDb(url, authToken)`.
 - En el cliente nunca va `DATABASE_URL` ni `AWS_*`: solo el servidor (route
   handlers) habla con Neon. La service role/owner no aparece en el repo.
 - Bucket `vehicles` privado, acceso con URLs firmadas generadas en servidor.
@@ -192,6 +207,12 @@ escribir datos.
 - Toda pantalla implementa sus cuatro estados: cargando, vacío, error, sin
   conexión.
 - Accesibilidad: contraste AA, `accessibilityLabel` en todo control sin texto.
+- Navegación fluida: transiciones de ruta con React View Transitions
+  (`experimental.viewTransition` + `src/ui/PageTransition.tsx` montado desde
+  `template.tsx` de cada grupo; 180 ms, respeta `prefers-reduced-motion`),
+  `loading.tsx` con esqueletos por grupo, y `router.prefetch` de la siguiente
+  pantalla del flujo (inicio → odómetro → viaje → fin). La barra inferior vive
+  en el layout y no se re-renderiza al cambiar de pestaña.
 
 ## Convenciones
 

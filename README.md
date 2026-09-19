@@ -83,6 +83,16 @@ Flujo de esquema: editar `packages/db/src/schema` → `pnpm db:generate` →
 revisar el SQL → `pnpm db:migrate`. Funciones, triggers y grants van en
 migraciones personalizadas (`generate:custom`).
 
+## Autenticación
+
+Neon Auth (Better Auth gestionado). El usuario escribe su correo, recibe un
+código de 6 dígitos y entra; si el correo es nuevo se crea la cuenta y se le
+pide su nombre. Todas las rutas salvo onboarding y login exigen sesión
+(`apps/web/proxy.ts`). Al primer acceso se crea una organización personal
+con membresía de owner. Variables: `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`
+(de `pnpm db:env`) y `NEON_AUTH_COOKIE_SECRET` (`openssl rand -base64 32`).
+`pnpm --filter @giroweg/db verify:auth` prueba el circuito completo.
+
 ## Seguridad
 
 - RLS en todas las tablas con políticas por membresía de organización
@@ -105,6 +115,11 @@ componente escribe colores ni tamaños literales.
 - [x] Diseño móvil materializado (19 pantallas, ambos temas)
 - [x] Reglas de dominio con tests y en Postgres
 - [x] Esquema Drizzle, migraciones y RLS en Neon
-- [ ] Neon Auth en la app (login, JWT para RLS)
+- [x] Neon Auth: registro e inicio de sesión con código por correo, rutas
+      protegidas, organización personal al primer acceso
+- [x] Transiciones de ruta (View Transitions), esqueletos de carga y prefetch
+- [ ] Consultas de usuario bajo RLS con el JWT (pendiente de que Neon acepte
+      los tokens EdDSA de Neon Auth; hoy el servidor verifica el JWT y filtra
+      por usuario)
 - [ ] Motor de sincronización del outbox y subida de fotos al bucket
 - [ ] Persistencia local en IndexedDB / app Expo

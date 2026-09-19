@@ -1,36 +1,40 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { authClient } from "@/auth/client";
 import { cn } from "@/lib/cn";
 import { Button, FieldLabel, LogoHorizontal, Screen, Spacer } from "@/ui";
 
-const COUNTRY_CODES = ["+52", "+1", "+34", "+57", "+54"] as const;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Groups digits as 55 4021 8837 while typing. */
-const formatPhone = (digits: string): string =>
-  digits
-    .slice(0, 10)
-    .replace(/(\d{2})(\d{0,4})(\d{0,4})/, (_, a: string, b: string, c: string) =>
-      [a, b, c].filter(Boolean).join(" "),
-    );
-
+/**
+ * Sign-in and sign-up with Neon Auth email OTP: the address gets a 6-digit
+ * code; unknown addresses become new accounts on verification.
+ */
 export function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const phoneId = useId();
-  const codeId = useId();
-  const [code, setCode] = useState<string>(COUNTRY_CODES[0]);
-  const [digits, setDigits] = useState("");
+  const emailId = useId();
+  const [email, setEmail] = useState("");
   const [focused, setFocused] = useState(false);
-  const valid = digits.length === 10;
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = EMAIL_PATTERN.test(email.trim());
 
-  const submit = () => {
-    if (!valid) return;
-    const phone = `${code} ${formatPhone(digits)}`;
-    router.push(`/login/verify?phone=${encodeURIComponent(phone)}`);
+  const submit = async () => {
+    if (!valid || sending) return;
+    setSending(true);
+    setError(null);
+    const address = email.trim().toLowerCase();
+    const { error: sendError } = await authClient.emailOtp.sendVerificationOtp({ email: address, type: "sign-in" });
+    setSending(false);
+    if (sendError) {
+      setError(t("auth.sendFailed"));
+      return;
+    }
+    router.push(`/login/verify?email=${encodeURIComponent(address)}`);
   };
 
   return (
@@ -45,45 +49,31 @@ export function LoginScreen() {
         className="flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          submit();
+          void submit();
         }}
       >
-        <FieldLabel htmlFor={phoneId}>{t("auth.phoneLabel")}</FieldLabel>
-        <div className="flex gap-2.5">
-          <div className="relative">
-            <label htmlFor={codeId} className="sr-only">
-              {t("auth.countryCode")}
-            </label>
-            <select
-              id={codeId}
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              className="h-15 appearance-none rounded-lg bg-surface pr-9 pl-4 font-display text-button font-semibold text-text outline-none focus-visible:ring-2 focus-visible:ring-lime"
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-          </div>
-          <input
-            id={phoneId}
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel-national"
-            value={formatPhone(digits)}
-            onChange={(event) => setDigits(event.target.value.replace(/\D/g, ""))}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="55 0000 0000"
-            className={cn(
-              "h-15 min-w-0 flex-1 rounded-lg bg-surface px-4.5 font-display text-card-title font-semibold text-text outline-none placeholder:text-muted",
-              focused && "border-2 border-lime",
-            )}
-          />
-        </div>
+        <FieldLabel htmlFor={emailId}>{t("auth.emailLabel")}</FieldLabel>
+        <input
+          id={emailId}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder="nombre@empresa.com"
+          className={cn(
+            "h-15 w-full rounded-lg bg-surface px-4.5 font-display text-card-title font-semibold text-text outline-none placeholder:text-muted",
+            focused && "border-2 border-lime",
+            error && "border-2 border-amber",
+          )}
+        />
+        {error && (
+          <p role="alert" className="text-secondary font-semibold text-amber-text">{error}</p>
+        )}
       </form>
 
       <Spacer />
@@ -97,8 +87,8 @@ export function LoginScreen() {
           }}
         />
       </p>
-      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid} onPress={submit}>
-        {t("auth.sendCode")}
+      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid || sending} isPending={sending} onPress={() => void submit()}>
+        {sending ? t("auth.sending") : t("auth.sendCode")}
       </Button>
     </Screen>
   );

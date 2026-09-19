@@ -5,6 +5,8 @@ import { Bell, Camera, MapPin, Moon, RefreshCw, Wrench } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { authClient } from "@/auth/client";
+import { useSessionUser } from "@/auth/useSessionUser";
 import { currentUser } from "@/db/seed";
 import { formatNumber, formatOdometer, formatTime } from "@/lib/format";
 import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";
@@ -20,9 +22,17 @@ export function ProfileScreen() {
   const { preference, setPreference } = useTheme();
   const active = useActiveVehicle();
   const trips = useTrips(active.data?.vehicle.id);
+  const { user } = useSessionUser();
   const [backgroundGps, setBackgroundGps] = useState(true);
   const [autoOdometer, setAutoOdometer] = useState(true);
   const [reminders, setReminders] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const signOut = async () => {
+    setSigningOut(true);
+    await authClient.signOut();
+    router.replace("/login");
+  };
 
   const month = dayKey(new Date().toISOString()).slice(0, 7);
   const monthTrips = (trips.data ?? []).filter((trip) => dayKey(trip.trip.startedAt).startsWith(month));
@@ -43,11 +53,13 @@ export function ProfileScreen() {
       <Screen>
         <header className="flex min-h-14 items-center gap-3.5">
           <Avatar size="lg" className="size-14 bg-surface-2 font-display text-figure-sm font-semibold text-text">
-            <Avatar.Fallback>{currentUser.initials}</Avatar.Fallback>
+            <Avatar.Fallback>{user?.initials ?? "·"}</Avatar.Fallback>
           </Avatar>
           <div>
-            <h1 className="font-display text-card-title font-semibold">{currentUser.name}</h1>
-            <div className="text-secondary text-muted">{t("profile.role", { role: currentUser.role, fleet: currentUser.fleet })}</div>
+            <h1 className="font-display text-card-title font-semibold">{user?.name || user?.email || " "}</h1>
+            <div className="text-secondary text-muted">
+              {user?.email && user.name ? user.email : t("profile.role", { role: currentUser.role, fleet: currentUser.fleet })}
+            </div>
           </div>
         </header>
 
@@ -115,10 +127,11 @@ export function ProfileScreen() {
 
         <button
           type="button"
-          onClick={() => router.push("/login")}
-          className="flex h-14 items-center justify-center text-row font-semibold text-red cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime"
+          disabled={signingOut}
+          onClick={() => void signOut()}
+          className="flex h-14 items-center justify-center text-row font-semibold text-red cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime disabled:text-muted"
         >
-          {t("auth.logout")}
+          {signingOut ? t("auth.loggingOut") : t("auth.logout")}
         </button>
       </Screen>
     </>

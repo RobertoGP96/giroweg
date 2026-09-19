@@ -4,8 +4,9 @@ import { Avatar } from "@heroui/react";
 import { ChevronRight, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { currentUser } from "@/db/seed";
+import { useSessionUser } from "@/auth/useSessionUser";
 import { formatDistance, formatNumber, formatTime } from "@/lib/format";
 import { useMaintenance } from "@/features/maintenance/hooks/useMaintenance";
 import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
@@ -21,11 +22,18 @@ export function HomeScreen() {
   const router = useRouter();
   const online = useOnlineStatus();
   const queue = useSyncQueue();
+  const { user } = useSessionUser();
   const active = useActiveVehicle();
   const vehicle = active.data?.vehicle;
   const trips = useTrips(vehicle?.id);
   const maintenance = useMaintenance(vehicle?.id);
   const beginStart = useShiftStore((s) => s.beginStart);
+
+  // The primary action must feel instant: preload the shift screens.
+  useEffect(() => {
+    router.prefetch("/shift/start");
+    router.prefetch("/shift/trip");
+  }, [router]);
 
   const startShift = () => {
     if (!vehicle) return;
@@ -45,14 +53,14 @@ export function HomeScreen() {
       <Screen>
         <header className="flex min-h-14 items-center justify-between">
           <div>
-            <div className="text-secondary text-muted">{t("home.greeting", { name: currentUser.firstName })}</div>
+            <div className="text-secondary text-muted">{user ? t("home.greeting", { name: user.firstName }) : " "}</div>
             <div className="font-display text-card-title font-semibold">
               {vehicle ? `${vehicle.name} · ${vehicle.plate ?? ""}` : " "}
             </div>
           </div>
-          <Link href="/profile" aria-label={t("home.profileOf", { name: currentUser.name })} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime">
+          <Link href="/profile" aria-label={t("home.profileOf", { name: user?.name ?? "" })} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime">
             <Avatar size="md" className="size-11 bg-surface-2 font-display text-row font-semibold text-text">
-              <Avatar.Fallback>{currentUser.initials}</Avatar.Fallback>
+              <Avatar.Fallback>{user?.initials ?? "·"}</Avatar.Fallback>
             </Avatar>
           </Link>
         </header>
