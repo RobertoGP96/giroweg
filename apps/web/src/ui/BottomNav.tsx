@@ -28,7 +28,7 @@ export function BottomNav() {
       aria-label={t("nav.label")}
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-screen pb-[calc(env(safe-area-inset-bottom)+var(--spacing-nav-offset))]"
     >
-      <div className="pointer-events-auto flex h-nav w-full max-w-nav items-center gap-1 rounded-full border border-line bg-surface/85 p-1.5 shadow-nav backdrop-blur-xl">
+      <div className="pointer-events-auto flex h-nav-height w-full max-w-nav items-center gap-1 rounded-full border border-line bg-surface/85 p-1.5 shadow-nav backdrop-blur-xl">
         {TABS.slice(0, 2).map((tab) => (
           <Tab key={tab.href} href={tab.href} label={t(tab.key)} Icon={tab.Icon} active={isActive(tab.href)} />
         ))}

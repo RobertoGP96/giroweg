@@ -70,8 +70,10 @@
   /* Layout */
   --container-app: 430px;
   --spacing-screen: 20px;
-  /* Floating tab bar: height, gap to the screen edge and room screens keep under it. */
-  --spacing-nav: 64px;
+  /* Floating tab bar: height, gap to the screen edge, room screens keep under it and
+     max width. The height token is not called --spacing-nav so it cannot shadow
+     --container-nav (max-w-nav resolves --spacing-* before --container-*). */
+  --spacing-nav-height: 64px;
   --spacing-nav-offset: 16px;
   --spacing-nav-clearance: 100px;
   --container-nav: 390px;
