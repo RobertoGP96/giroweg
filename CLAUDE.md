@@ -167,7 +167,8 @@ escribir datos.
 - Autenticación: Neon Auth (Better Auth gestionado) con OTP por correo para
   registro e inicio de sesión (`authClient.emailOtp.sendVerificationOtp` +
   `signIn.emailOtp`; un correo desconocido crea la cuenta). Servidor en
-  `src/auth/server.ts` (`createNeonAuth`), proxy `/api/auth/[...path]`,
+  `src/auth/server.ts` (`getAuth()`, instancia perezosa para que `next build`
+  no exija el env), proxy `/api/auth/[...path]`,
   protección de rutas en `proxy.ts` (todo salvo onboarding, login y salud),
   cliente en `src/auth/client.ts` y `useSessionUser()`. Usuarios en el esquema
   `neon_auth`; `memberships.user_id` guarda el `sub` del JWT.

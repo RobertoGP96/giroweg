@@ -1,6 +1,6 @@
 import { eq, schema, sql } from "@giroweg/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth/server";
+import { getAuth } from "@/auth/server";
 import { verifyToken } from "@/auth/verifyToken";
 import { getServerDb } from "@/db/server";
 import { readBearerToken } from "@/db/user";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  * Auth's EdDSA tokens yet, so user scoping happens here on the server).
  */
 export async function POST(request: Request) {
-  const { data: session } = await auth.getSession();
+  const { data: session } = await getAuth().getSession();
   const sessionUser = session?.user;
   if (!sessionUser) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
