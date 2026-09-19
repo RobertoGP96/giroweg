@@ -1,0 +1,27 @@
+{
+  "name": "giroweg",
+  "private": true,
+  "packageManager": "pnpm@11.13.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "web": "pnpm --filter @giroweg/web dev",
+    "web:build": "pnpm --filter @giroweg/web build",
+    "web:start": "pnpm --filter @giroweg/web start",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "db:deploy": "neon deploy",
+    "db:env": "neon env pull --file apps/web/.env.local",
+    "db:generate": "pnpm --filter @giroweg/db generate",
+    "db:migrate": "pnpm --filter @giroweg/db migrate",
+    "db:studio": "pnpm --filter @giroweg/db studio",
+    "db:branch": "neon checkout"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@neon/config": "^1.7.2",
+    "neon": "^5.0.0"
+  }
+}

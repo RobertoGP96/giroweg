@@ -1,0 +1,185 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/*
+ * GiroWeg theme.
+ * The `--gw-*` custom properties are injected on <html> by app/layout.tsx from
+ * packages/shared/tokens.ts (single source of truth). This file only maps them
+ * to Tailwind utilities and to HeroUI semantic tokens. Components must never
+ * use literal colors, sizes or spacing: only these utilities.
+ */
+
+@theme inline {
+  /* Colors */
+  --color-bg: var(--gw-bg);
+  --color-surface: var(--gw-surface);
+  --color-surface-2: var(--gw-surface2);
+  --color-text: var(--gw-text);
+  --color-muted: var(--gw-muted);
+  --color-lime: var(--gw-lime);
+  --color-lime-text: var(--gw-lime-text);
+  --color-amber: var(--gw-amber);
+  --color-amber-text: var(--gw-amber-text);
+  --color-red: var(--gw-red);
+  --color-line: var(--gw-line);
+  --color-track: var(--gw-track);
+  --color-map: var(--gw-map);
+  --color-map-line: var(--gw-map-line);
+  --color-ink: var(--gw-ink);
+  /* Digits over the camera preview: always light, in both themes. */
+  --color-camera-text: #F2F4F7;
+
+
+  /* Typography */
+  --font-display: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-body: var(--font-inter), "Inter", sans-serif;
+  --font-sans: var(--font-inter), "Inter", sans-serif;
+
+  --text-nav: 11px;
+  --text-label: 12px;
+  --text-secondary: 13px;
+  --text-body: 14px;
+  --text-row: 15px;
+  --text-body-lg: 16px;
+  --text-button-sm: 16px;
+  --text-button: 17px;
+  --text-button-md: 18px;
+  --text-button-lg: 19px;
+  --text-figure-sm: 18px;
+  --text-stat: 22px;
+  --text-auth-title: 30px;
+  --text-card-title: 20px;
+  --text-screen-title: 28px;
+  --text-onboarding: 32px;
+  --text-odometer: 40px;
+  --text-dial-sm: 36px;
+  --text-dial: 44px;
+  --text-ring: 48px;
+  --text-shift-total: 52px;
+  --text-display: 56px;
+  --tracking-dial: 4px;
+
+  /* Radii: 16 default, 12 nested, 8 small controls, 28 sheets, pill */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-bar: 4px;
+  --radius-segment: 10px;
+  --radius-control: 14px;
+  --radius-sheet-sm: 24px;
+  --radius-sheet: 28px;
+  --radius-phone: 40px;
+
+  /* Layout */
+  --container-app: 430px;
+  --spacing-screen: 20px;
+}
+
+@layer base {
+  /* HeroUI semantic tokens mapped to the GiroWeg palette (both themes). */
+  :root,
+  [data-theme="dark"],
+  [data-theme="light"] {
+    --background: var(--gw-bg);
+    --foreground: var(--gw-text);
+    --surface: var(--gw-surface);
+    --surface-foreground: var(--gw-text);
+    --overlay: var(--gw-surface2);
+    --overlay-foreground: var(--gw-text);
+    --muted: var(--gw-muted);
+    --default: var(--gw-surface2);
+    --default-foreground: var(--gw-text);
+    --accent: var(--gw-lime);
+    --accent-foreground: var(--gw-ink);
+    --success: var(--gw-lime);
+    --success-foreground: var(--gw-ink);
+    --warning: var(--gw-amber);
+    --warning-foreground: var(--gw-ink);
+    --danger: var(--gw-red);
+    --danger-foreground: var(--gw-ink);
+    --field-background: var(--gw-surface);
+    --field-foreground: var(--gw-text);
+    --field-placeholder: var(--gw-muted);
+    --segment: var(--gw-bg);
+    --segment-foreground: var(--gw-text);
+    --border: var(--gw-line);
+    --separator: var(--gw-line);
+    --focus: var(--gw-lime);
+    --link: var(--gw-text);
+    --surface-shadow: var(--gw-shadow);
+    --radius: 16px;
+    --field-radius: 16px;
+    --disabled-opacity: 1;
+  }
+
+  :root,
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    height: 100%;
+    background: var(--gw-bg);
+    color: var(--gw-text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Figures and titles always use tabular numerals. */
+  .font-display {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Elevation: no borders, only shadow (values from the tokens). */
+@utility shadow-card {
+  box-shadow: var(--gw-shadow);
+}
+
+@utility shadow-sheet {
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes gw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gw-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@utility animate-spin-slow {
+  animation: gw-spin 1s linear infinite;
+}
+
+@utility animate-caret {
+  animation: gw-pulse 1s infinite;
+}
+
+/* Camera viewfinder vignette used by the odometer capture frame. */
+@utility bg-vignette {
+  background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+/* Map grid used by the trip screens. */
+@utility bg-map-grid {
+  background-color: var(--gw-map);
+  background-image:
+    linear-gradient(var(--gw-map-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gw-map-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
