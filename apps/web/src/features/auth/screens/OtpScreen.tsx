@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/auth/client";
 import { cn } from "@/lib/cn";
 import { formatElapsed } from "@/lib/format";
-import { Button, Screen, Spacer, TopBar } from "@/ui";
+import { Button, Screen, Spacer, TopBar, navOptions, useNavigate } from "@/ui";
 import { completeSignIn } from "../completeSignIn";
 
 const LENGTH = 6;
@@ -15,7 +15,7 @@ const RESEND_SECONDS = 42;
 
 export function OtpScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { replace } = useNavigate();
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const [digits, setDigits] = useState<string[]>(Array.from({ length: LENGTH }, () => ""));
@@ -57,7 +57,7 @@ export function OtpScreen() {
       return;
     }
     const next = await completeSignIn();
-    router.replace(next);
+    replace(next, "forward");
   };
 
   const resend = async () => {
@@ -73,7 +73,7 @@ export function OtpScreen() {
         <h1 className="font-display text-auth-title font-bold leading-tight">{t("auth.otpTitle")}</h1>
         <p className="mt-2 text-row text-muted">
           {t("auth.otpBody", { email })}{" "}
-          <Link href="/login" className="text-text underline">
+          <Link href="/login" {...navOptions("back")} className="text-text underline">
             {t("auth.change")}
           </Link>
         </p>

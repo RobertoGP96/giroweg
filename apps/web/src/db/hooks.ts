@@ -11,6 +11,9 @@ const EMPTY_PREFS: Preferences = { selectedVehicleId: null };
 export const useStoreVersion = (): number =>
   useSyncExternalStore(subscribe, () => getStore().version, () => 0);
 
+/** The same version outside React (e.g. when priming a query from an event). */
+export const storeVersion = (): number => getStore().version;
+
 export const useLocalSession = (): LocalSession | null =>
   useSyncExternalStore(subscribe, () => getStore().session, () => null);
 

@@ -3,7 +3,6 @@
 import { Avatar } from "@heroui/react";
 import { Car, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionUser } from "@/auth/useSessionUser";
@@ -15,15 +14,15 @@ import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { recordSyncState } from "@/features/sync/hooks/useRecordSync";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
-import { useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
+import { primeVehicleDetail, useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
 import { selectVehicle } from "@/features/vehicles/repository";
-import { Button, Card, EmptyState, ErrorState, Figure, FilterChip, ListSkeleton, OfflineBanner, Screen, SectionLabel, Spacer } from "@/ui";
+import { Button, Card, EmptyState, ErrorState, Figure, FilterChip, ListSkeleton, OfflineBanner, Screen, SectionLabel, SharedElement, Spacer, navOptions, useNavigate } from "@/ui";
 
 const RECENT_COUNT = 3;
 
 export function HomeScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, prefetch, pending } = useNavigate();
   const online = useOnlineStatus();
   const queue = useSyncQueue();
   const { user } = useSessionUser();
@@ -34,9 +33,9 @@ export function HomeScreen() {
 
   // The primary actions must feel instant: preload their screens.
   useEffect(() => {
-    router.prefetch("/readings/new");
-    router.prefetch("/vehicles/new");
-  }, [router]);
+    prefetch("/readings/new");
+    prefetch("/vehicles/new");
+  }, [prefetch]);
 
   const empty = vehicles.status === "success" && vehicles.data.length === 0;
   const unit = selected?.vehicle.unit ?? "km";
@@ -53,7 +52,7 @@ export function HomeScreen() {
               {selected ? `${selected.vehicle.name}${selected.vehicle.plate ? ` · ${selected.vehicle.plate}` : ""}` : t("app.tagline")}
             </div>
           </div>
-          <Link href="/profile" aria-label={t("home.profileOf", { name: user?.name ?? "" })} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime">
+          <Link href="/profile" {...navOptions("tab")} aria-label={t("home.profileOf", { name: user?.name ?? "" })} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime">
             <Avatar size="md" className="size-11 bg-surface-2 font-display text-row font-semibold text-text">
               <Avatar.Fallback>{user?.initials ?? "·"}</Avatar.Fallback>
             </Avatar>
@@ -68,7 +67,7 @@ export function HomeScreen() {
             title={t("home.emptyTitle")}
             body={t("home.emptyBody")}
             action={
-              <Button size="lg" onPress={() => router.push("/vehicles/new")} className="mt-2">
+              <Button size="lg" onPress={() => push("/vehicles/new")} isPending={pending} className="mt-2">
                 <Plus className="size-5" strokeWidth={2.4} aria-hidden />
                 {t("vehicles.add")}
               </Button>
@@ -92,7 +91,13 @@ export function HomeScreen() {
               </div>
             )}
 
-            <Link href={`/vehicles/${selected.vehicle.id}`} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime">
+            <Link
+              href={`/vehicles/${selected.vehicle.id}`}
+              {...navOptions("forward")}
+              onPointerDown={() => primeVehicleDetail(selected.vehicle.id)}
+              onFocus={() => primeVehicleDetail(selected.vehicle.id)}
+              className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime"
+            >
               <Card padding="lg">
                 <div className="flex items-center justify-between gap-3 text-secondary text-muted">
                   <span>
@@ -101,7 +106,9 @@ export function HomeScreen() {
                   </span>
                   <SyncBadge state={recordSyncState(queue, selected.vehicle.id)} showLabel />
                 </div>
-                <Figure size="display" value={formatOdometer(selected.odometer)} unit={unit} className="mt-1.5" />
+                <SharedElement name={`odometer-${selected.vehicle.id}`}>
+                  <Figure size="display" value={formatOdometer(selected.odometer)} unit={unit} className="mt-1.5" />
+                </SharedElement>
                 <div className="mt-3 text-secondary text-muted">
                   {selected.lastReading
                     ? t("home.lastReadingAt", { date: formatDateTime(selected.lastReading.recordedAt) })
@@ -129,6 +136,7 @@ export function HomeScreen() {
                   <SectionLabel>{t("home.recentReadings")}</SectionLabel>
                   <Link
                     href={`/history?vehicle=${selected.vehicle.id}`}
+                    {...navOptions("tab")}
                     className="rounded-sm text-secondary font-semibold text-lime-text outline-none focus-visible:ring-2 focus-visible:ring-lime"
                   >
                     {t("home.seeAll")}
@@ -143,7 +151,7 @@ export function HomeScreen() {
             {!online && <SyncQueueCard entries={queue} online={online} />}
 
             <Spacer />
-            <Button size="lg" className="mb-1" onPress={() => router.push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
+            <Button size="lg" className="mb-1" isPending={pending} onPress={() => push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
               <Plus className="size-5.5" strokeWidth={2.4} aria-hidden />
               {t("readings.new")}
             </Button>

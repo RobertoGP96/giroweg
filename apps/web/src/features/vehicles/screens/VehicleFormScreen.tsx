@@ -1,14 +1,13 @@
 "use client";
 
 import type { VehicleFormOutput } from "@giroweg/shared/schemas";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalSession } from "@/db/hooks";
 import { useAsync } from "@/lib/useAsync";
 import { syncNow } from "@/features/sync/engine";
 import { useSyncStatus } from "@/features/sync/store";
-import { AlertCard, Button, Card, ErrorState, ListSkeleton, Screen, TopBar } from "@/ui";
+import { AlertCard, Button, Card, ErrorState, ListSkeleton, Screen, TopBar, useNavigate } from "@/ui";
 import { VehicleForm } from "../components/VehicleForm";
 import { selectVehicle, vehiclesRepository } from "../repository";
 
@@ -19,11 +18,11 @@ interface VehicleFormScreenProps {
 
 export function VehicleFormScreen({ vehicleId }: VehicleFormScreenProps) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { replace, done } = useNavigate();
   const session = useLocalSession();
   const { syncing, lastError } = useSyncStatus();
   const editing = vehicleId !== undefined;
-  const existing = useAsync(async () => {
+  const existing = useAsync(`vehicle:form:${vehicleId ?? "new"}`, async () => {
     if (!vehicleId) return null;
     const vehicle = await vehiclesRepository.getById(vehicleId);
     if (!vehicle) throw new Error("Vehicle not found");
@@ -33,7 +32,9 @@ export function VehicleFormScreen({ vehicleId }: VehicleFormScreenProps) {
   const submit = async (input: VehicleFormOutput) => {
     const saved = vehicleId ? await vehiclesRepository.update(vehicleId, input) : await vehiclesRepository.create(input);
     selectVehicle(saved.id);
-    router.replace(`/vehicles/${saved.id}`);
+    // A new vehicle opens its detail in place of the form; an edit returns to the detail it came from.
+    if (vehicleId) done(`/vehicles/${saved.id}`);
+    else replace(`/vehicles/${saved.id}`, "forward");
   };
 
   const backHref = vehicleId ? `/vehicles/${vehicleId}` : "/vehicles";
@@ -75,7 +76,7 @@ export function VehicleFormScreen({ vehicleId }: VehicleFormScreenProps) {
 
 function ArchiveSection({ vehicleId, archived }: { vehicleId: string; archived: boolean }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { replace, done } = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -84,7 +85,8 @@ function ArchiveSection({ vehicleId, archived }: { vehicleId: string; archived: 
     try {
       await vehiclesRepository.setArchived(vehicleId, value);
       if (value) selectVehicle(null);
-      router.replace(value ? "/vehicles" : `/vehicles/${vehicleId}`);
+      if (value) replace("/vehicles", "back");
+      else done(`/vehicles/${vehicleId}`);
     } finally {
       setBusy(false);
     }

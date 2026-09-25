@@ -156,47 +156,165 @@
 }
 
 /*
- * Route transitions (React View Transitions, enabled in next.config.ts).
- * Pages fade and slide 8 px in 180 ms; the exiting page fades out faster so
- * the incoming content is readable immediately. Disabled for reduced motion.
+ * Route transitions (React <ViewTransition> in src/ui/PageTransition.tsx).
+ * Navigation code adds a transition type (src/ui/navigation.ts) and the page
+ * maps it to one of these classes:
+ *   gw-page-forward  into a flow screen: the new page slides in from the right
+ *   gw-page-back     returning: the new page slides in from the left
+ *   gw-page-tab      tab switch: a quick cross-fade
+ *   gw-page          anything else (a skeleton revealing content): fade + rise
+ * Elements shared between two screens (gw-shared) glide to their new place.
+ * Durations and easings are tokens; nothing else animates during a route
+ * change, so the shell (tab bar) stays still.
  */
-@keyframes gw-page-in {
+:root {
+  --gw-motion-page: 240ms;
+  --gw-motion-tab: 160ms;
+  --gw-motion-out: 140ms;
+  --gw-page-shift: 32px;
+  --gw-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gw-ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes gw-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gw-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes gw-rise-in {
   from {
     opacity: 0;
     transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
-@keyframes gw-page-out {
+@keyframes gw-enter-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(var(--gw-page-shift));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gw-enter-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--gw-page-shift)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gw-leave-to-left {
   from {
     opacity: 1;
+    transform: none;
   }
   to {
     opacity: 0;
+    transform: translateX(calc(-0.5 * var(--gw-page-shift)));
   }
 }
 
+@keyframes gw-leave-to-right {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(0.5 * var(--gw-page-shift)));
+  }
+}
+
+/* The page groups do not move; keep their (no-op) group animation as short as the page. */
+::view-transition-group(.gw-page),
+::view-transition-group(.gw-page-forward),
+::view-transition-group(.gw-page-back) {
+  animation-duration: var(--gw-motion-page);
+}
+
+::view-transition-group(.gw-page-tab) {
+  animation-duration: var(--gw-motion-tab);
+}
+
 ::view-transition-old(.gw-page) {
-  animation: gw-page-out 120ms ease-in both;
+  animation: gw-fade-out var(--gw-motion-out) var(--gw-ease-in) both;
 }
 
 ::view-transition-new(.gw-page) {
-  animation: gw-page-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: gw-rise-in var(--gw-motion-page) var(--gw-ease-out) both;
 }
 
+::view-transition-old(.gw-page-tab) {
+  animation: gw-fade-out var(--gw-motion-out) var(--gw-ease-in) both;
+}
+
+::view-transition-new(.gw-page-tab) {
+  animation: gw-fade-in var(--gw-motion-tab) var(--gw-ease-out) both;
+}
+
+::view-transition-old(.gw-page-forward) {
+  animation: gw-leave-to-left var(--gw-motion-out) var(--gw-ease-in) both;
+}
+
+::view-transition-new(.gw-page-forward) {
+  animation: gw-enter-from-right var(--gw-motion-page) var(--gw-ease-out) both;
+}
+
+::view-transition-old(.gw-page-back) {
+  animation: gw-leave-to-right var(--gw-motion-out) var(--gw-ease-in) both;
+}
+
+::view-transition-new(.gw-page-back) {
+  animation: gw-enter-from-left var(--gw-motion-page) var(--gw-ease-out) both;
+}
+
+/* Shared elements travel between their two positions in step with the page. */
+::view-transition-group(.gw-shared) {
+  animation-duration: var(--gw-motion-page);
+  animation-timing-function: var(--gw-ease-out);
+}
+
+::view-transition-old(.gw-shared),
+::view-transition-new(.gw-shared) {
+  animation-duration: var(--gw-motion-page);
+}
+
+/* The document root never animates: the shell stays put under the page. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(.gw-page),
-  ::view-transition-new(.gw-page) {
-    animation: none;
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
 

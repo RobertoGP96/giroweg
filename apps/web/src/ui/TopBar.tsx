@@ -1,15 +1,15 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./Button";
 import { cn } from "@/lib/cn";
+import { useNavigate } from "./navigation";
 
 interface TopBarProps {
   title: string;
-  /** Route to go back to; falls back to browser history. */
+  /** Where "back" leads when the previous history entry is not the app's. */
   backHref?: string;
   onBack?: () => void;
   trailing?: ReactNode;
@@ -20,18 +20,18 @@ interface TopBarProps {
 
 export function TopBar({ title, backHref, onBack, trailing, large = false, className }: TopBarProps) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { back, pending } = useNavigate();
   const showBack = Boolean(backHref || onBack);
 
   const handleBack = () => {
     if (onBack) return onBack();
-    if (backHref) return router.push(backHref);
+    if (backHref) return back(backHref);
   };
 
   return (
     <header className={cn("flex min-h-14 items-center gap-2", showBack && "-ml-4", className)}>
       {showBack && (
-        <IconButton label={t("common.back")} onPress={handleBack}>
+        <IconButton label={t("common.back")} onPress={handleBack} isPending={pending}>
           <ChevronLeft className="size-6" strokeWidth={2} />
         </IconButton>
       )}

@@ -229,12 +229,29 @@ escribir datos.
 - Toda pantalla implementa sus cuatro estados: cargando, vacío, error, sin
   conexión.
 - Accesibilidad: contraste AA, `accessibilityLabel` en todo control sin texto.
-- Navegación fluida: transiciones de ruta con React View Transitions
-  (`experimental.viewTransition` + `src/ui/PageTransition.tsx` montado desde
-  `template.tsx` de cada grupo; 180 ms, respeta `prefers-reduced-motion`),
-  `loading.tsx` con esqueletos por grupo, y `router.prefetch` de la siguiente
-  pantalla del flujo (inicio → odómetro → viaje → fin). La barra inferior vive
-  en el layout y no se re-renderiza al cambiar de pestaña.
+- Navegación fluida: transiciones de ruta con `<ViewTransition>` de React
+  (`src/ui/PageTransition.tsx`, montado desde `template.tsx` de cada grupo)
+  con dirección: toda navegación lleva un tipo de transición de
+  `src/ui/navigation.ts` (`nav-forward` entra deslizando desde la derecha,
+  `nav-back` desde la izquierda, `nav-tab` funde entre pestañas; sin tipo,
+  fundido + 8 px). Se navega con `useNavigate()` (`push`, `replace`, `back`,
+  `done`, `pending`) o con `Link {...navOptions(dir)}`; nunca con `useRouter`
+  a pelo. `back`/`done` navegan con push/replace tipados `nav-back`, no con
+  `router.back()`: React renderiza en carril síncrono lo despachado durante
+  `popstate` (para restaurar el scroll) y un commit síncrono no inicia view
+  transitions, así que el botón atrás del navegador es instantáneo por
+  diseño. Elementos compartidos entre pantallas (`SharedElement`:
+  icono y odómetro del vehículo) se deslizan a su nueva posición. Duraciones y
+  curvas son tokens en `globals.css`; `prefers-reduced-motion` desactiva todo.
+  `loading.tsx` con esqueletos por grupo (`RouteSkeleton`), `router.prefetch`
+  de la siguiente pantalla del flujo, y estado pendiente en el control que
+  navega (`useLinkStatus` en la barra inferior, `pending` en botones).
+  Los datos locales se leen a través de `useAsync(key, load, deps)`
+  (`src/lib/asyncCache.ts`): caché compartida por clave, datos previos
+  visibles mientras se recarga y precarga al pulsar (`primeVehicleDetail`,
+  `primeReading`), de modo que una pantalla ya visitada abre con contenido en
+  el primer fotograma. La barra inferior vive en el layout y no se
+  re-renderiza al cambiar de pestaña.
 
 ## Convenciones
 

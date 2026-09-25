@@ -1,16 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/auth/client";
 import { cn } from "@/lib/cn";
-import { Button, FieldLabel, LogoHorizontal, Screen, Spacer } from "@/ui";
+import { Button, FieldLabel, LogoHorizontal, Screen, Spacer, useNavigate } from "@/ui";
 
 /** First sign-in: capture the driver's name (Neon Auth user profile). */
 export function WelcomeScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { replace, pending } = useNavigate();
   const nameId = useId();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -27,7 +26,7 @@ export function WelcomeScreen() {
       setError(t("states.errorTitle"));
       return;
     }
-    router.replace("/home");
+    replace("/home", "forward");
   };
 
   return (
@@ -60,7 +59,7 @@ export function WelcomeScreen() {
         {error && <p role="alert" className="text-secondary font-semibold text-amber-text">{error}</p>}
       </form>
       <Spacer />
-      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid || saving} isPending={saving} onPress={() => void save()}>
+      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid || saving || pending} isPending={saving || pending} onPress={() => void save()}>
         {t("auth.saveName")}
       </Button>
     </Screen>

@@ -1,12 +1,11 @@
 "use client";
 
 import { Car, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
-import { Button, EmptyState, ErrorState, FilterChip, IconButton, ListSkeleton, OfflineBanner, Screen, TopBar } from "@/ui";
+import { Button, EmptyState, ErrorState, FilterChip, IconButton, ListSkeleton, OfflineBanner, Screen, TopBar, useNavigate } from "@/ui";
 import { VehicleCard } from "../components/VehicleCard";
 import { useVehicles } from "../hooks/useVehicles";
 
@@ -14,17 +13,17 @@ type Filter = "active" | "archived";
 
 export function VehiclesScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, prefetch, pending } = useNavigate();
   const online = useOnlineStatus();
   const queue = useSyncQueue();
   const [filter, setFilter] = useState<Filter>("active");
   const vehicles = useVehicles(filter);
 
   useEffect(() => {
-    router.prefetch("/vehicles/new");
-  }, [router]);
+    prefetch("/vehicles/new");
+  }, [prefetch]);
 
-  const addVehicle = () => router.push("/vehicles/new");
+  const addVehicle = () => push("/vehicles/new");
   const empty = vehicles.status === "success" && vehicles.data.length === 0;
 
   return (
@@ -35,7 +34,7 @@ export function VehiclesScreen() {
           title={t("vehicles.title")}
           large
           trailing={
-            <IconButton label={t("vehicles.add")} tone="elevated" className="size-11" onPress={addVehicle}>
+            <IconButton label={t("vehicles.add")} tone="elevated" className="size-11" isPending={pending} onPress={addVehicle}>
               <Plus className="size-5.5" strokeWidth={2.2} />
             </IconButton>
           }
@@ -59,7 +58,7 @@ export function VehiclesScreen() {
             body={t(filter === "active" ? "vehicles.emptyBody" : "vehicles.emptyArchivedBody")}
             action={
               filter === "active" && (
-                <Button size="lg" onPress={addVehicle} className="mt-2">
+                <Button size="lg" onPress={addVehicle} isPending={pending} className="mt-2">
                   <Plus className="size-5" strokeWidth={2.4} aria-hidden />
                   {t("vehicles.add")}
                 </Button>

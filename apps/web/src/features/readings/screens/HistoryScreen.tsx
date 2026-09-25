@@ -1,14 +1,14 @@
 "use client";
 
 import { Car, Download, Plus } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { capitalize, formatDayLabel, formatOdometerDistance } from "@/lib/format";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
 import { useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
-import { Button, EmptyState, ErrorState, FilterChip, IconButton, ListSkeleton, OfflineBanner, Screen, Spinner, TopBar } from "@/ui";
+import { Button, EmptyState, ErrorState, FilterChip, IconButton, ListSkeleton, OfflineBanner, Screen, Spinner, TopBar, useNavigate } from "@/ui";
 import { ReadingRow } from "../components/ReadingRow";
 import { exportReadingsCsv } from "../export";
 import { useReadings } from "../hooks/useReadings";
@@ -57,7 +57,7 @@ const rangeStart = (range: Range, now: Date = new Date()): string | null => {
 
 export function HistoryScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, pending } = useNavigate();
   const params = useSearchParams();
   const forced = params.get("state") as ForcedState;
   const online = useOnlineStatus();
@@ -137,7 +137,7 @@ export function HistoryScreen() {
             title={t("vehicles.emptyTitle")}
             body={t("vehicles.emptyBody")}
             action={
-              <Button size="lg" onPress={() => router.push("/vehicles/new")} className="mt-2">
+              <Button size="lg" onPress={() => push("/vehicles/new")} isPending={pending} className="mt-2">
                 <Plus className="size-5" strokeWidth={2.4} aria-hidden />
                 {t("vehicles.add")}
               </Button>
@@ -150,7 +150,7 @@ export function HistoryScreen() {
             body={t("states.emptyReadingsBody")}
             action={
               current && (
-                <Button size="lg" onPress={() => router.push(`/readings/new?vehicle=${current.vehicle.id}`)} className="mt-2">
+                <Button size="lg" onPress={() => push(`/readings/new?vehicle=${current.vehicle.id}`)} isPending={pending} className="mt-2">
                   <Plus className="size-5" strokeWidth={2.4} aria-hidden />
                   {t("states.addFirstReading")}
                 </Button>

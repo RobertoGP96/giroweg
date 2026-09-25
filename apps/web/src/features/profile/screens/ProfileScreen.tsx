@@ -2,7 +2,6 @@
 
 import { Avatar } from "@heroui/react";
 import { Download, Globe, Moon, RefreshCw, Ruler } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/auth/client";
@@ -10,6 +9,7 @@ import { useSessionUser } from "@/auth/useSessionUser";
 import { getStore } from "@/db/client";
 import { useStoreVersion } from "@/db/hooks";
 import { clearPersistedState } from "@/db/persistence";
+import { clearAsyncCache } from "@/lib/asyncCache";
 import { formatTime } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
 import { useInstallPrompt } from "@/pwa/useInstallPrompt";
@@ -22,11 +22,11 @@ import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
 import { useSyncStatus } from "@/features/sync/store";
 import { useVehicles } from "@/features/vehicles/hooks/useVehicles";
-import { Card, OfflineBanner, Screen, SectionLabel, Segmented, SettingsRow, Spinner } from "@/ui";
+import { Card, OfflineBanner, Screen, SectionLabel, Segmented, SettingsRow, Spinner, useNavigate } from "@/ui";
 
 export function ProfileScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { replace } = useNavigate();
   const online = useOnlineStatus();
   const queue = useSyncQueue();
   const { syncing, lastSyncAt, lastError } = useSyncStatus();
@@ -35,10 +35,8 @@ export function ProfileScreen() {
   const { user } = useSessionUser();
   const vehicles = useVehicles("active");
   const version = useStoreVersion();
-  const monthReadings = useAsync(
-    () => readingsRepository.countSince(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-    [version],
-  );
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const monthReadings = useAsync(`readings:since:${monthStart}`, () => readingsRepository.countSince(monthStart), [version]);
   const [signingOut, setSigningOut] = useState(false);
 
   const signOut = async () => {
@@ -48,7 +46,8 @@ export function ProfileScreen() {
     await authClient.signOut();
     getStore().reset();
     clearPersistedState();
-    router.replace("/login");
+    clearAsyncCache();
+    replace("/login", "back");
   };
 
   const themeOptions: ReadonlyArray<{ value: ThemePreference; label: string }> = [

@@ -2,7 +2,6 @@
 
 import { Download, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { formatDateTime, formatOdometer, formatShortDate } from "@/lib/format";
@@ -11,7 +10,7 @@ import { exportReadingsCsv } from "@/features/readings/export";
 import { useVehicleStats } from "@/features/readings/hooks/useReadings";
 import { SyncBadge } from "@/features/sync/components/SyncBadge";
 import { useRecordSync } from "@/features/sync/hooks/useRecordSync";
-import { AlertCard, Button, Card, ErrorState, Figure, IconButton, ListSkeleton, Screen, SectionLabel, Spacer, TopBar } from "@/ui";
+import { AlertCard, Button, Card, ErrorState, Figure, IconButton, ListSkeleton, Screen, SectionLabel, SharedElement, Spacer, TopBar, navOptions, useNavigate } from "@/ui";
 import { VehicleChart } from "../components/VehicleChart";
 import { VehicleTypeIcon } from "../components/VehicleTypeIcon";
 import { useVehicle } from "../hooks/useVehicles";
@@ -21,14 +20,15 @@ const RECENT_COUNT = 5;
 
 export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, prefetch, pending } = useNavigate();
   const detail = useVehicle(vehicleId);
   const stats = useVehicleStats(vehicleId);
   const sync = useRecordSync(vehicleId);
 
   useEffect(() => {
-    router.prefetch("/readings/new");
-  }, [router]);
+    prefetch("/readings/new");
+    prefetch(`/vehicles/${vehicleId}/edit`);
+  }, [prefetch, vehicleId]);
 
   if (detail.status === "loading") {
     return (
@@ -54,7 +54,7 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
 
   const newReading = () => {
     selectVehicle(vehicle.id);
-    router.push(`/readings/new?vehicle=${vehicle.id}`);
+    push(`/readings/new?vehicle=${vehicle.id}`);
   };
 
   return (
@@ -63,7 +63,7 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
         title={vehicle.name}
         backHref="/vehicles"
         trailing={
-          <IconButton label={t("vehicles.edit")} tone="elevated" className="size-11" onPress={() => router.push(`/vehicles/${vehicle.id}/edit`)}>
+          <IconButton label={t("vehicles.edit")} tone="elevated" className="size-11" isPending={pending} onPress={() => push(`/vehicles/${vehicle.id}/edit`)}>
             <Pencil className="size-5" strokeWidth={2} />
           </IconButton>
         }
@@ -74,9 +74,11 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
       )}
 
       <div className="flex items-center gap-3.5">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-surface-2 text-muted">
-          <VehicleTypeIcon type={vehicle.type} className="size-7" />
-        </div>
+        <SharedElement name={`vehicle-icon-${vehicle.id}`}>
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-surface-2 text-muted">
+            <VehicleTypeIcon type={vehicle.type} className="size-7" />
+          </div>
+        </SharedElement>
         <div className="min-w-0 flex-1">
           <div className="text-body text-muted">
             {t(`vehicles.types.${vehicle.type}`)}
@@ -94,7 +96,9 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
 
       <Card padding="lg">
         <div className="text-secondary text-muted">{t("home.currentOdometer")}</div>
-        <Figure size="total" value={formatOdometer(odometer)} unit={unit} className="mt-1" />
+        <SharedElement name={`odometer-${vehicle.id}`}>
+          <Figure size="total" value={formatOdometer(odometer)} unit={unit} className="mt-1" />
+        </SharedElement>
         <div className="mt-2 text-secondary text-muted">
           {lastReading ? t("home.lastReadingAt", { date: formatDateTime(lastReading.recordedAt) }) : t("home.noReadingsYet")}
         </div>
@@ -108,7 +112,7 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
         <div className="flex items-center justify-between">
           <SectionLabel>{t("readings.title")}</SectionLabel>
           {entries.length > RECENT_COUNT && (
-            <Link href={`/history?vehicle=${vehicle.id}`} className="text-secondary font-semibold text-lime-text outline-none focus-visible:ring-2 focus-visible:ring-lime rounded-sm">
+            <Link href={`/history?vehicle=${vehicle.id}`} {...navOptions("tab")} className="text-secondary font-semibold text-lime-text outline-none focus-visible:ring-2 focus-visible:ring-lime rounded-sm">
               {t("home.seeAll")}
             </Link>
           )}
@@ -128,7 +132,7 @@ export function VehicleDetailScreen({ vehicleId }: { vehicleId: string }) {
         </Button>
       )}
       {!archived && (
-        <Button size="lg" onPress={newReading}>
+        <Button size="lg" isPending={pending} onPress={newReading}>
           <Plus className="size-5.5" strokeWidth={2.4} aria-hidden />
           {t("readings.new")}
         </Button>

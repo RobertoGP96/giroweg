@@ -1,22 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { formatOdometerDistance } from "@/lib/format";
-import { Button, Card, LogoMark, Screen } from "@/ui";
+import { Button, Card, LogoMark, Screen, useNavigate } from "@/ui";
 
 const STEPS = ["step1", "step2", "step3"] as const;
 
 export function OnboardingScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, pending } = useNavigate();
   const [index, setIndex] = useState(0);
   const step = STEPS[index] ?? "step1";
   const last = index === STEPS.length - 1;
 
-  const finish = () => router.push("/login");
+  const finish = () => push("/login");
   const next = () => (last ? finish() : setIndex(index + 1));
 
   return (
@@ -56,7 +55,7 @@ export function OnboardingScreen() {
             />
           ))}
         </div>
-        <Button size="md" onPress={next} className="h-15 text-button-md">
+        <Button size="md" onPress={next} isPending={pending} className="h-15 text-button-md">
           {last ? t("common.start") : t("common.next")}
         </Button>
       </div>

@@ -1,51 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { ensureLoaded, LOADING, readCache, stampOf, subscribeCache, type AsyncState } from "./asyncCache";
 
-export type AsyncState<T> =
-  | { status: "loading"; data: undefined; error: undefined }
-  | { status: "success"; data: T; error: undefined }
-  | { status: "error"; data: undefined; error: Error };
-
-const LOADING: AsyncState<never> = { status: "loading", data: undefined, error: undefined };
+export type { AsyncState } from "./asyncCache";
 
 /**
- * Minimal async loader for repository reads: loading → success | error, with
- * reload. Screens use it to implement their loading / error states.
- * A new request (deps or reload) keeps showing the last successful data
- * while it loads, so local writes and syncs never flash a skeleton.
+ * Loader for repository reads: loading → success | error, with reload.
+ * Results live in the shared asyncCache under `key`, so a screen that comes
+ * back (tab switch, back navigation) or whose data another screen already
+ * loaded renders with content on its first frame. When `deps` change
+ * (typically the local store version) the last data stays visible while the
+ * fresh load runs, so local writes and syncs never flash a skeleton.
  */
-export const useAsync = <T>(load: () => Promise<T>, deps: ReadonlyArray<unknown>) => {
-  const [version, setVersion] = useState(0);
-  // A fresh identity for every (deps, version) combination.
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- deps are provided by the caller
-  const request = useMemo(() => ({}), [...deps, version]);
-  const [result, setResult] = useState<{ request: object; state: AsyncState<T> } | null>(null);
-
+export const useAsync = <T>(key: string, load: () => Promise<T>, deps: ReadonlyArray<unknown>) => {
+  const stamp = stampOf(deps);
+  const loadRef = useRef(load);
   useEffect(() => {
-    let cancelled = false;
-    load()
-      .then((data) => {
-        if (!cancelled) setResult({ request, state: { status: "success", data, error: undefined } });
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return;
-        const error = cause instanceof Error ? cause : new Error(String(cause));
-        setResult({ request, state: { status: "error", data: undefined, error } });
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is captured per request on purpose
-  }, [request]);
+    loadRef.current = load;
+  });
 
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const subscribe = useCallback((listener: () => void) => subscribeCache(key, listener), [key]);
+  const entry = useSyncExternalStore(subscribe, () => readCache<T>(key), () => null);
+
+  // `missing` re-runs the effect when the cache is cleared while mounted.
+  const missing = entry === null;
+  useEffect(() => {
+    void ensureLoaded(key, stamp, () => loadRef.current());
+  }, [key, stamp, missing]);
+
+  const reload = useCallback(() => {
+    void ensureLoaded(key, stamp, () => loadRef.current(), { force: true });
+  }, [key, stamp]);
+
   const state: AsyncState<T> =
-    result?.request === request
-      ? result.state
-      : result?.state.status === "success"
-        ? result.state
-        : LOADING;
+    entry === null ? LOADING : entry.stamp === stamp || entry.state.status === "success" ? entry.state : LOADING;
 
   return { ...state, reload };
 };

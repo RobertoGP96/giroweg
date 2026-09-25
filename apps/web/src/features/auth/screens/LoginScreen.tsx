@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { authClient } from "@/auth/client";
 import { cn } from "@/lib/cn";
-import { Button, FieldLabel, LogoHorizontal, Screen, Spacer } from "@/ui";
+import { Button, FieldLabel, LogoHorizontal, Screen, Spacer, useNavigate } from "@/ui";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -15,7 +14,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  */
 export function LoginScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, pending } = useNavigate();
   const emailId = useId();
   const [email, setEmail] = useState("");
   const [focused, setFocused] = useState(false);
@@ -34,7 +33,7 @@ export function LoginScreen() {
       setError(t("auth.sendFailed"));
       return;
     }
-    router.push(`/login/verify?email=${encodeURIComponent(address)}`);
+    push(`/login/verify?email=${encodeURIComponent(address)}`);
   };
 
   return (
@@ -87,7 +86,7 @@ export function LoginScreen() {
           }}
         />
       </p>
-      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid || sending} isPending={sending} onPress={() => void submit()}>
+      <Button size="md" className="mb-2 h-15 text-button-md" isDisabled={!valid || sending || pending} isPending={sending || pending} onPress={() => void submit()}>
         {sending ? t("auth.sending") : t("auth.sendCode")}
       </Button>
     </Screen>

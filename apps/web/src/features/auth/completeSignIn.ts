@@ -1,6 +1,7 @@
 "use client";
 
 import { getStore } from "@/db/client";
+import { clearAsyncCache } from "@/lib/asyncCache";
 import { apiFetch } from "@/features/sync/api";
 import { syncNow } from "@/features/sync/engine";
 
@@ -23,7 +24,10 @@ export const completeSignIn = async (): Promise<string> => {
 
   const store = getStore();
   if (result.organizationId) {
-    if (store.session && store.session.userId !== result.userId) store.reset();
+    if (store.session && store.session.userId !== result.userId) {
+      store.reset();
+      clearAsyncCache();
+    }
     store.setSession({ userId: result.userId, orgId: result.organizationId });
     await syncNow();
   }

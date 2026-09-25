@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 import { formatOdometer, formatOdometerDistance, formatShortDate, formatTime } from "@/lib/format";
 import { SyncBadge } from "@/features/sync/components/SyncBadge";
 import { useRecordSync } from "@/features/sync/hooks/useRecordSync";
-import { Card } from "@/ui";
+import { Card, navOptions } from "@/ui";
+import { primeReading } from "../hooks/useReadings";
 import type { ReadingEntry } from "../repository";
 
 interface ReadingRowProps {
@@ -24,9 +25,17 @@ export function ReadingRow({ entry, unit, withDate = false }: ReadingRowProps) {
   const voided = reading.voidedAt !== null;
   const Icon = voided ? Ban : reading.odometerReset ? RotateCcw : Gauge;
   const when = withDate ? `${formatShortDate(reading.recordedAt)} · ${formatTime(reading.recordedAt)}` : formatTime(reading.recordedAt);
+  // Pressing warms the detail so it opens with content on its first frame.
+  const prime = () => primeReading(reading.id);
 
   return (
-    <Link href={`/readings/${reading.id}`} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime">
+    <Link
+      href={`/readings/${reading.id}`}
+      {...navOptions("forward")}
+      onPointerDown={prime}
+      onFocus={prime}
+      className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-lime"
+    >
       <Card className="flex items-center gap-3">
         <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-2", voided ? "text-amber-text" : "text-muted")}>
           <Icon className="size-5" strokeWidth={2} aria-hidden />

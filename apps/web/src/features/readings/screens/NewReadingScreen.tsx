@@ -2,7 +2,7 @@
 
 import { odometerAt } from "@giroweg/shared/domain";
 import { Car, Plus } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ZodError } from "zod";
@@ -11,7 +11,7 @@ import { formatOdometerDistance, fromDateTimeLocal, nowLocalDateTime } from "@/l
 import { VehicleTypeIcon } from "@/features/vehicles/components/VehicleTypeIcon";
 import { useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
 import { selectVehicle } from "@/features/vehicles/repository";
-import { Button, Card, EmptyState, ErrorState, FilterChip, ListSkeleton, Screen, Spacer, TextArea, TextInput, Toggle, TopBar } from "@/ui";
+import { Button, Card, EmptyState, ErrorState, FilterChip, ListSkeleton, Screen, Spacer, TextArea, TextInput, Toggle, TopBar, useNavigate } from "@/ui";
 import { OdometerInput } from "../components/OdometerInput";
 import { useReadings } from "../hooks/useReadings";
 import { ReadingRejectedError, readingsRepository } from "../repository";
@@ -21,7 +21,7 @@ const FUTURE_TOLERANCE_MS = 5 * 60_000;
 
 export function NewReadingScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { push, done, pending } = useNavigate();
   const params = useSearchParams();
   const session = useLocalSession();
   const vehicles = useVehicles("active");
@@ -60,7 +60,8 @@ export function NewReadingScreen() {
         odometerReset: reset,
       });
       selectVehicle(current.vehicle.id);
-      router.replace("/home");
+      // Back to the screen that opened the form (home, a vehicle, the history).
+      done("/home");
     } catch (cause) {
       if (cause instanceof ReadingRejectedError) {
         const v = cause.validation;
@@ -97,7 +98,7 @@ export function NewReadingScreen() {
           title={t("vehicles.emptyTitle")}
           body={t("vehicles.emptyBody")}
           action={
-            <Button size="lg" onPress={() => router.push("/vehicles/new")} className="mt-2">
+            <Button size="lg" onPress={() => push("/vehicles/new")} isPending={pending} className="mt-2">
               <Plus className="size-5" strokeWidth={2.4} aria-hidden />
               {t("vehicles.add")}
             </Button>

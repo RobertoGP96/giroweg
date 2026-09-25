@@ -1,13 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatOdometer, formatOdometerDistance } from "@/lib/format";
 import { SyncBadge } from "@/features/sync/components/SyncBadge";
 import { useRecordSync } from "@/features/sync/hooks/useRecordSync";
-import { AlertCard, Button, Card, ErrorState, Figure, ListSkeleton, Screen, Spacer, TextArea, TopBar } from "@/ui";
+import { AlertCard, Button, Card, ErrorState, Figure, ListSkeleton, Screen, Spacer, TextArea, TopBar, useNavigate } from "@/ui";
 import { useReading } from "../hooks/useReadings";
 import { readingsRepository } from "../repository";
 
@@ -15,7 +14,7 @@ const MIN_REASON_LENGTH = 3;
 
 export function ReadingDetailScreen({ readingId }: { readingId: string }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { back, pending } = useNavigate();
   const detail = useReading(readingId);
   const sync = useRecordSync(readingId);
   const [confirming, setConfirming] = useState(false);
@@ -127,7 +126,7 @@ export function ReadingDetailScreen({ readingId }: { readingId: string }) {
           </Button>
         ))}
       {voided && (
-        <Button variant="outline" size="md" onPress={() => router.push(backHref)}>
+        <Button variant="outline" size="md" isPending={pending} onPress={() => back(backHref)}>
           {t("common.back")}
         </Button>
       )}
