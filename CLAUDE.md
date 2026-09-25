@@ -55,6 +55,7 @@ pnpm db:generate       # drizzle-kit generate (migración desde el esquema)
 pnpm db:migrate        # drizzle-kit migrate con DATABASE_URL_UNPOOLED
 pnpm db:studio         # drizzle-kit studio
 pnpm db:branch <name>  # neon checkout: rama de Neon por feature (dev-* con TTL 14 d)
+pnpm --filter @giroweg/web icons  # regenera public/icons (PWA) desde scripts/generate-icons.mjs
 ```
 
 Flujo de esquema: editar `packages/db/src/schema` → `pnpm db:generate` →
@@ -85,6 +86,14 @@ apps/web/              app móvil-first en Next.js 16 (materializa el diseño
                        api/onboarding, api/sync, api/health, api/auth
   app/globals.css      mapea los tokens --gw-* a utilidades Tailwind y a los
                        tokens semánticos de HeroUI; sombras como @utility
+  app/manifest.ts      manifest de la PWA (instalable en Android/iOS; start_url
+                       /home, colores desde tokens) · app/offline página de
+                       respaldo sin conexión
+  public/sw.js         service worker (solo producción): precache de shell e
+                       iconos, /_next/static cache-first, navegaciones
+                       network-first con respaldo /offline; nunca cachea /api
+  public/icons/        iconos PNG generados por scripts/generate-icons.mjs
+                       (marca minimalista: marco de cuarto de círculo + neumático)
   src/features/<x>/    auth, onboarding, vehicles, readings, profile, home, sync
     components/ hooks/ screens/ repository.ts
   src/db/              LocalStore en memoria + outbox (mismo contrato que
@@ -96,6 +105,9 @@ apps/web/              app móvil-first en Next.js 16 (materializa el diseño
                        flotante con acción central, estados
   src/i18n/            i18next, textos en locales/es.json
   src/theme/           ThemeProvider (dark | light | auto) + script anti-flash
+  src/pwa/             PwaBoot (registra sw.js en producción, lo desregistra en
+                       dev) y useInstallPrompt (beforeinstallprompt → fila
+                       "Instalar" en Perfil)
 apps/mobile/           (pendiente) Expo
   app/                 rutas Expo Router (solo composición, sin lógica)
   src/features/<x>/    vehicles, readings, trips, expenses, maintenance, reports

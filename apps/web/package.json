@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@giroweg/db": "workspace:*",
@@ -41,6 +42,7 @@
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.3.5",
+    "sharp": "0.35.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
