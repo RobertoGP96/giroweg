@@ -1,6 +1,5 @@
 "use client";
 
-import type { TFunction } from "i18next";
 import { Car, Gauge, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getStore } from "@/db/client";
@@ -9,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { formatOdometer, formatTime } from "@/lib/format";
 import { Button, Card, SectionLabel, Spinner } from "@/ui";
 import { retryNow } from "../engine";
+import { syncErrorMessage } from "../errorMessage";
 import { useSyncStatus } from "../store";
 
 interface SyncQueueCardProps {
@@ -27,10 +27,6 @@ const describe = (entry: OutboxEntry): string => {
   const vehicle = store.table("vehicles").find((row) => row.id === reading.vehicleId);
   return `${formatOdometer(reading.value)} ${vehicle?.unit ?? ""}`.trim();
 };
-
-/** Server error keys are snake_case; anything else (network, HTTP) gets the generic text. */
-const describeError = (t: TFunction, error: string): string =>
-  /^[a-z_]+$/.test(error) ? t(`sync.errors.${error}`, { defaultValue: t("sync.errors.unknown") }) : t("sync.errors.unknown");
 
 /** The sync queue: what is waiting in the outbox and what is being sent. */
 export function SyncQueueCard({ entries, online }: SyncQueueCardProps) {
@@ -60,7 +56,7 @@ export function SyncQueueCard({ entries, online }: SyncQueueCardProps) {
                   {t(`sync.table.${entry.table}`)} · {describe(entry)}
                 </div>
                 <div className={cn("text-label", entry.lastError ? "text-amber-text" : "text-muted")}>
-                  {entry.lastError ? describeError(t, entry.lastError) : formatTime(entry.createdAt)}
+                  {entry.lastError ? syncErrorMessage(t, entry.lastError) : formatTime(entry.createdAt)}
                 </div>
               </div>
               {active ? <Spinner className="size-4.5" /> : <span className="text-label text-muted">{t("states.queued")}</span>}

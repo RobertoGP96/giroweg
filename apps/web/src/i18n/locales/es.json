@@ -43,7 +43,10 @@
     "errorBody": "No pudimos cargar esta pantalla. Tus datos siguen guardados en el teléfono.",
     "emptyReadingsTitle": "Aún no hay lecturas",
     "emptyReadingsBody": "Registra la primera lectura del odómetro de este vehículo.",
-    "addFirstReading": "Registrar primera lectura"
+    "addFirstReading": "Registrar primera lectura",
+    "offlinePageTitle": "Sin conexión",
+    "offlinePageBody": "Esta pantalla aún no está guardada en el teléfono. Vuelve al inicio para seguir trabajando en local.",
+    "offlineBackToApp": "Volver al inicio"
   },
   "onboarding": {
     "step1Title": "Cada kilómetro,\nregistrado.",
@@ -225,7 +228,10 @@
     "units": "Unidades",
     "unitsValue": "km · millas · horas",
     "language": "Idioma",
-    "languageValue": "Español"
+    "languageValue": "Español",
+    "install": "Instalar en el teléfono",
+    "installHint": "Icono en la pantalla de inicio y funciona sin conexión",
+    "installed": "Instalada"
   },
   "sync": {
     "state": {
@@ -243,10 +249,19 @@
     "bootstrapFailed": "No se pudo conectar con el servidor ({{error}}). Se reintenta solo cada pocos segundos.",
     "lastError": "Última sincronización con error: {{error}}",
     "errors": {
-      "unknown": "No se pudo enviar. Se reintentará.",
+      "transport": "No se pudo enviar ({{code}}). Se reintentará.",
+      "http_400": "El servidor rechazó los datos enviados ({{code}}). Actualiza la app y reintenta.",
+      "http_401": "La sesión caducó ({{code}}). Vuelve a iniciar sesión.",
+      "http_409": "Tu cuenta aún no tiene organización ({{code}}). Reintenta en unos segundos.",
+      "http_5xx": "Error del servidor ({{code}}). Se reintentará.",
       "reading_below_previous": "Rechazada por el servidor: es menor que la lectura anterior.",
       "reading_above_next": "Rechazada por el servidor: es mayor que la lectura siguiente.",
+      "readings_are_append_only": "Rechazada por el servidor: una lectura no se puede modificar.",
+      "reading_already_voided": "Rechazada por el servidor: la lectura ya estaba anulada.",
       "vehicle_unit_immutable": "Rechazada por el servidor: la unidad ya no se puede cambiar.",
+      "foreign_key_violation": "Rechazada por el servidor: el vehículo de esta lectura no existe allí.",
+      "unique_violation": "Rechazada por el servidor: ya existe un registro con este id.",
+      "insufficient_privilege": "Rechazada por el servidor: sin permiso para esta operación.",
       "forbidden": "Sin permiso para este registro."
     }
   }

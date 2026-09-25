@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar } from "@heroui/react";
-import { Globe, Moon, RefreshCw, Ruler } from "lucide-react";
+import { Download, Globe, Moon, RefreshCw, Ruler } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,10 +12,12 @@ import { useStoreVersion } from "@/db/hooks";
 import { clearPersistedState } from "@/db/persistence";
 import { formatTime } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
+import { useInstallPrompt } from "@/pwa/useInstallPrompt";
 import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";
 import { readingsRepository } from "@/features/readings/repository";
 import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
 import { syncNow } from "@/features/sync/engine";
+import { syncErrorMessage } from "@/features/sync/errorMessage";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
 import { useSyncStatus } from "@/features/sync/store";
@@ -29,6 +31,7 @@ export function ProfileScreen() {
   const queue = useSyncQueue();
   const { syncing, lastSyncAt, lastError } = useSyncStatus();
   const { preference, setPreference } = useTheme();
+  const { canInstall, install } = useInstallPrompt();
   const { user } = useSessionUser();
   const vehicles = useVehicles("active");
   const version = useStoreVersion();
@@ -116,6 +119,18 @@ export function ProfileScreen() {
           />
         </Card>
 
+        {canInstall && (
+          <Card padding="none" className="flex flex-col">
+            <SettingsRow
+              icon={<Download className="size-5.5" strokeWidth={2} />}
+              label={t("profile.install")}
+              trailing={<span className="text-label text-muted">{t("profile.installHint")}</span>}
+              onPress={() => void install()}
+              last
+            />
+          </Card>
+        )}
+
         <Card padding="none" className="flex flex-col">
           <SettingsRow icon={<Ruler className="size-5.5" strokeWidth={2} />} label={t("profile.units")} trailing={<span className="text-body text-muted">{t("profile.unitsValue")}</span>} />
           <SettingsRow icon={<Globe className="size-5.5" strokeWidth={2} />} label={t("profile.language")} trailing={<span className="text-body text-muted">{t("profile.languageValue")}</span>} last />
@@ -123,7 +138,7 @@ export function ProfileScreen() {
 
         {lastError && (
           <p role="status" className="text-label leading-relaxed text-amber-text">
-            {t("sync.lastError", { error: lastError })}
+            {t("sync.lastError", { error: syncErrorMessage(t, lastError) })}
           </p>
         )}
         {queue.length > 0 && <SyncQueueCard entries={queue} online={online} />}

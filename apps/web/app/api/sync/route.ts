@@ -3,6 +3,7 @@ import { readingSchema, vehicleSchema } from "@giroweg/shared/schemas";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authenticate } from "@/auth/requireUser";
+import { describeDbError } from "@/db/errors";
 import { readingFromRow, toIso, vehicleFromRow } from "@/db/rows";
 import { getServerDb } from "@/db/server";
 
@@ -26,14 +27,11 @@ interface PushResult {
 /** `excluded.<column>` inside ON CONFLICT DO UPDATE. */
 const excluded = (column: { name: string }) => sql.raw(`excluded.${column.name}`);
 
-/** Postgres error → short key the client can show, plus whether a retry can help. */
-const describeError = (cause: unknown): { error: string; permanent: boolean } => {
-  const { code, message } = cause as { code?: unknown; message?: unknown };
-  const text = typeof message === "string" ? message : "error";
-  const key = /^[a-z_]+:/.test(text) ? text.split(":")[0] : null;
-  const sqlState = typeof code === "string" ? code : "";
-  const permanent = /^(22|23|42)/.test(sqlState) || sqlState === "P0001";
-  return { error: key ?? (sqlState || text.slice(0, 120)), permanent };
+/** Records a rejected record for the server log and tells the device why. */
+const rejected = (table: PushResult["table"], id: string, cause: unknown): PushResult => {
+  const described = describeDbError(cause);
+  console.error(`[sync] ${table} ${id} rejected (${described.code ?? "no sqlstate"}): ${described.detail}`);
+  return { table, id, ok: false, syncedAt: null, error: described.error, permanent: described.permanent };
 };
 
 /** Everything the organization has: the device replaces its local copy with it. */
@@ -76,7 +74,11 @@ export async function POST(request: Request) {
   const orgId = user.orgId;
 
   const parsed = pushSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+    console.error(`[sync] invalid payload: ${issues}`);
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
 
   const db = getServerDb();
   const results: PushResult[] = [];
@@ -120,7 +122,7 @@ export async function POST(request: Request) {
         });
       results.push({ table: "vehicles", id: vehicle.id, ok: true, syncedAt: null, error: null, permanent: false });
     } catch (cause) {
-      results.push({ table: "vehicles", id: vehicle.id, ok: false, syncedAt: null, ...describeError(cause) });
+      results.push(rejected("vehicles", vehicle.id, cause));
     }
   }
 
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
         });
       results.push({ table: "readings", id: reading.id, ok: true, syncedAt: null, error: null, permanent: false });
     } catch (cause) {
-      results.push({ table: "readings", id: reading.id, ok: false, syncedAt: null, ...describeError(cause) });
+      results.push(rejected("readings", reading.id, cause));
     }
   }
 
