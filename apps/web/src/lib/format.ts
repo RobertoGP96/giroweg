@@ -23,6 +23,12 @@ export const formatDistance = (value: number, unit: string, decimals = 1): strin
 export const formatOdometerDistance = (value: number, unit: string): string =>
   `${formatOdometer(value)} ${unit}`;
 
+/** A 0..1 ratio as a percentage with one decimal: "3,1 %". */
+export const formatPercent = (ratio: number): string => `${formatNumber(ratio * 100, 1)} %`;
+
+/** Speed figure without decimals; the unit label goes next to it. */
+export const formatSpeed = (value: number): string => formatNumber(value, 0);
+
 /** Elapsed seconds as m:ss or h:mm:ss */
 export const formatElapsed = (totalSeconds: number): string => {
   const hours = Math.floor(totalSeconds / 3600);

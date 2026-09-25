@@ -64,9 +64,26 @@ try {
   await expectFail("rule 1: delete rejected", `delete from readings where id = '${r("b1")}'`, [], "readings_are_append_only");
   await expectFail("rule 3: unit change rejected", `update vehicles set unit = 'mi' where id = '${veh}'`, [], "vehicle_unit_immutable");
   await expectOk("rule 5: synced_at stamped by server", `select 1 from readings where id = '${r("b1")}' and synced_at >= now() - interval '1 minute'`);
+  const trip = r("c1");
+  const tripInsert = (id, startReadingId) =>
+    `insert into trips (id, org_id, created_at, updated_at, vehicle_id, start_reading_id, started_at)
+     values ('${id}', '${org}', now(), now(), '${veh}', '${startReadingId}', '2026-09-14T11:00:00Z')`;
+  const route = (id, tripId, pointCount) =>
+    `insert into trip_routes (id, org_id, created_at, updated_at, trip_id, segments, point_count)
+     values ('${id}', '${org}', now(), now(), '${tripId}', '[[[-3.7, 40.4, 0, 5], [-3.71, 40.41, 60000, 5]]]'::jsonb, ${pointCount})`;
+  await expectOk("trips: open trip on existing reading", tripInsert(trip, r("b8")));
+  await expectFail("trips: unknown start reading rejected", tripInsert(r("c2"), r("ff")), [], "trips_start_reading_fk");
+  await expectOk("trip_routes: track for the trip", route(r("d1"), trip, 2));
+  await expectOk("trip_routes: synced_at stamped by server", `select 1 from trip_routes where id = '${r("d1")}' and synced_at >= now() - interval '1 minute'`);
+  await expectFail("trip_routes: second track for the same trip rejected", route(r("d2"), trip, 2), [], "trip_routes_trip_unique");
+  await expectFail("trip_routes: point_count 1 rejected", route(r("d3"), r("c3"), 1), [], "trip_routes_point_count_min");
+  await expectOk("trips: end the trip", `update trips set ended_at = '2026-09-14T12:00:00Z' where id = '${trip}'`);
+  await expectFail("trips: reopening an ended trip rejected", `update trips set ended_at = null where id = '${trip}'`, [], "trip_already_ended");
+  await expectFail("trips: changing start reading rejected", `update trips set start_reading_id = '${r("b1")}' where id = '${trip}'`, [], "trip_start_immutable");
+  await expectFail("trips: ended before started rejected", `update trips set ended_at = '2026-09-14T10:00:00Z' where id = '${trip}'`, [], "trips_ended_after_started");
   await expectOk("admin purge with allow_purge", `set local giroweg.allow_purge = 'on'; delete from organizations where id = '${org}'`);
   const { rows } = await client.query("select count(*)::int as n from pg_policies where schemaname = 'public'");
-  results.push({ label: `rls policies in public: ${rows[0].n}`, ok: rows[0].n >= 29 });
+  results.push({ label: `rls policies in public: ${rows[0].n}`, ok: rows[0].n >= 33 });
 } finally {
   await client.query("ROLLBACK");
   client.release();

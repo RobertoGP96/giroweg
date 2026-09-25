@@ -3,14 +3,15 @@
 Registro de kilometraje fiable para vehículos de todo tipo: motos, autos,
 camionetas, furgonetas, camiones, bicicletas y maquinaria. Cada lectura del
 odómetro queda en un historial auditable, rápido de capturar y disponible sin
-conexión. El alcance actual es dar de alta vehículos y registrar sus lecturas;
-viajes, gastos y mantenimiento quedan para una fase posterior.
+conexión. El alcance actual es dar de alta vehículos, registrar sus lecturas y
+grabar viajes con GPS (lectura de inicio → ruta → lectura final confirmada);
+gastos y mantenimiento quedan para una fase posterior.
 
 ## Stack
 
 | Capa | Tecnología |
 | --- | --- |
-| App (móvil-first) | Next.js 16 · React 19 · HeroUI v3 · Tailwind CSS 4 · lucide-react · i18next · zustand |
+| App (móvil-first) | Next.js 16 · React 19 · HeroUI v3 · Tailwind CSS 4 · lucide-react · i18next · zustand · maplibre-gl (OpenFreeMap) |
 | Dominio compartido | `packages/shared`: tokens de diseño, reglas puras con tests (vitest) y esquemas zod |
 | Datos | `packages/db`: Drizzle ORM sobre Neon (Lakebase Postgres 18) con migraciones SQL y RLS |
 | Backend | Neon: Postgres, Neon Auth (Better Auth), Data API y Object Storage (bucket `vehicles`) |
@@ -21,9 +22,10 @@ viajes, gastos y mantenimiento quedan para una fase posterior.
 ```
 apps/web/           app Next.js (App Router). Rutas: onboarding, login, welcome,
                     home, vehicles, vehicles/new, vehicles/[id], vehicles/[id]/edit,
-                    history, readings/new, readings/[id], profile,
-                    api/onboarding, api/sync, api/health
-  src/features/     auth, vehicles, readings, home, profile, sync
+                    history, readings/new, readings/[id], trips/start,
+                    trips/active, trips/end, trips/[tripId], profile,
+                    api/onboarding, api/sync, api/trips/[tripId]/route, api/health
+  src/features/     auth, vehicles, readings, trips, home, profile, sync
                     (pantallas → hooks → repository)
   src/ui/           sistema de diseño (botones, campos, tarjetas, cifras, estados,
                     barra inferior flotante)
@@ -70,7 +72,10 @@ Neon y las migraciones aplicadas.
 
 Flujo de uso: entra con tu correo (código OTP), añade un vehículo (tipo, nombre,
 placa, unidad y lectura inicial) y registra lecturas desde el botón central de
-la barra inferior. Todo se guarda primero en el dispositivo y se sincroniza con
+la barra inferior. Desde Inicio puedes iniciar un viaje: se registra la lectura
+de salida, la ruta se graba por GPS (con la pantalla encendida) y al terminar se
+confirma la lectura de llegada, sugerida desde la distancia GPS y siempre
+editable. Todo se guarda primero en el dispositivo y se sincroniza con
 Neon en segundo plano; cada registro muestra su estado de sincronización y las
 lecturas se anulan con motivo, nunca se editan.
 

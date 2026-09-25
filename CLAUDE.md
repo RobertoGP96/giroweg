@@ -30,6 +30,9 @@ corromper y disponible sin conexión.
 - Gráficos: victory-native. OCR del odómetro: ML Kit en el dispositivo
   (`@react-native-ml-kit/text-recognition`), nunca un servicio en la nube.
 - Web (fase 3): Next.js App Router, mismo Supabase, mismos esquemas zod.
+- Mapa de ruta (web): maplibre-gl con teselas de OpenFreeMap (sin clave).
+  Geolocalización solo en primer plano (`watchPosition`) con Screen Wake Lock
+  para que la pantalla no se apague durante el viaje.
 - No usar Prisma: el esquema vive en Drizzle y los tipos salen de él
   (`InferSelectModel`), sin paso de generación.
 
@@ -82,8 +85,10 @@ apps/web/              app móvil-first en Next.js 16 (materializa el diseño
   app/                 rutas App Router (solo composición): (auth) onboarding,
                        login, login/verify, welcome · (tabs) home, vehicles,
                        history, profile · (flow) vehicles/new, vehicles/[id],
-                       vehicles/[id]/edit, readings/new, readings/[id] ·
-                       api/onboarding, api/sync, api/health, api/auth
+                       vehicles/[id]/edit, readings/new, readings/[id],
+                       trips/start, trips/active, trips/end, trips/[tripId] ·
+                       api/onboarding, api/sync, api/trips/[tripId]/route,
+                       api/health, api/auth
   app/globals.css      mapea los tokens --gw-* a utilidades Tailwind y a los
                        tokens semánticos de HeroUI; sombras como @utility
   app/manifest.ts      manifest de la PWA (instalable en Android/iOS; start_url
@@ -94,8 +99,15 @@ apps/web/              app móvil-first en Next.js 16 (materializa el diseño
                        network-first con respaldo /offline; nunca cachea /api
   public/icons/        iconos PNG generados por scripts/generate-icons.mjs
                        (marca minimalista: marco de cuarto de círculo + neumático)
-  src/features/<x>/    auth, onboarding, vehicles, readings, profile, home, sync
+  src/features/<x>/    auth, onboarding, vehicles, readings, profile, home, sync,
+                       trips
     components/ hooks/ screens/ repository.ts
+  src/features/trips/  tracking.ts (reducer puro del viaje: fixes, pausas,
+                       huecos, distancia), store.ts + snapshot.ts (Zustand con
+                       instantánea en localStorage para sobrevivir recargas),
+                       wakeLock.ts, gpsSimulator.ts (dev, `?sim=1`),
+                       components/RouteMap (maplibre), GpsStatusPill,
+                       WakeLockPill, ActiveTripBanner, TripRow
   src/db/              LocalStore en memoria + outbox (mismo contrato que
                        tendrá SQLite/IndexedDB), espejo en localStorage
                        (persistence.ts), hooks de lectura y rows.ts (servidor:
@@ -119,7 +131,10 @@ packages/shared/       (src/) tokens.ts, domain/, schemas/ con tests vitest
 packages/db/           Drizzle: src/schema (tablas, enums desde shared, políticas
                        RLS por membresía), src/client.ts (createDb), migrations/
                        (0000 roles+funciones is_org_member/admin, 0001 tablas,
-                       0002 triggers de reglas de dominio y create_organization)
+                       0002 triggers de reglas de dominio y create_organization,
+                       0004 restricciones de trips, 0005 trip_routes, 0006
+                       triggers de trips; 0004-0006 aplicadas en la rama
+                       dev-trips, pendientes en production)
 neon.ts                servicios de Neon por rama (auth, dataApi, bucket vehicles)
   domain/              reglas puras (validación de lecturas, unidades, cálculos)
   schemas/             zod
@@ -145,7 +160,14 @@ escribir datos.
   (`manual|ocr|trip`), `photo_path`, `note`, `created_by`, `voided_at`,
   `void_reason`, `odometer_reset` (cambio de odómetro explícito: reinicia la
   secuencia y exige `note`).
-- `trips`: `start_reading_id`, `end_reading_id`, distancia GPS, motivo.
+- `trips`: `start_reading_id`, `end_reading_id` (nullable), `started_at`,
+  `ended_at`, `gps_distance` (en la unidad del vehículo), `pauses`,
+  `paused_seconds`, `reason`. Un viaje con `ended_at` y `end_reading_id` nulo
+  es un viaje cancelado; la distancia del viaje se deriva de sus dos lecturas
+  (regla 4).
+- `trip_routes`: una fila por viaje; `segments` jsonb con tramos de puntos
+  `[lng, lat, tOffsetMs, accuracyM]` partidos en pausas y huecos de señal,
+  `point_count`. Sin PostGIS: la ruta solo se dibuja, no se consulta.
 - `expenses`: tipo (combustible, otro), importe, moneda, litros, `reading_id`.
 - `maintenance_rules` (cada N unidades o N días) y `maintenance_events`.
 
@@ -182,6 +204,24 @@ escribir datos.
   que reemplaza las tablas locales conservando lo pendiente. Lo arranca
   `SyncBoot` al cargar, al volver la red, tras cada escritura y cada minuto.
   El servidor fija `org_id` y `created_by` a partir del usuario verificado.
+- Viajes: `trips` se sincronizan como el resto (push por outbox y pull en
+  bloque). Las rutas (`trip_routes`) se empujan por el outbox pero no se
+  descargan en bloque: `GET /api/trips/[tripId]/route` las trae bajo demanda y
+  se cachean en local (las pendientes de subir más las 10 más recientes).
+  Claves de localStorage: `giroweg.local.v1` (tablas y outbox; nunca rutas),
+  `giroweg.routes.v1` (caché de rutas) y `giroweg.trip.v1` (instantánea del
+  viaje activo, escrita con throttle de 5 s). El motor clasifica como
+  `dependency_rejected` un viaje o ruta cuyo padre (lectura o viaje) fue
+  rechazado, y lo reintenta cuando el padre entra. La lectura final se sugiere
+  desde el GPS (redondeo hacia abajo a la precisión del odómetro) y siempre es
+  editable (regla 6); solo se guarda con `source = "trip"` si el usuario la
+  acepta sin cambios. Los umbrales del GPS (precisión, velocidad, huecos,
+  tolerancia GPS vs. odómetro) son tokens en `packages/shared/tokens.ts`;
+  en desarrollo `?sim=1` activa un simulador de posiciones.
+- Limitación del wake lock: la geolocalización web solo funciona con la app en
+  primer plano y la pantalla encendida; Screen Wake Lock lo mantiene mientras
+  el sistema lo permite (iOS como PWA instalada requiere 18.4+). Si se pierde,
+  la UI lo avisa y ofrece reintentar.
 
 ## Seguridad
 
@@ -216,6 +256,11 @@ escribir datos.
   adjuntar la foto una vez); `readings_validate` aplica la regla 2;
   `vehicles_unit_immutable` la regla 3. Un borrado administrativo de una
   organización requiere `SET LOCAL giroweg.allow_purge = 'on'` como owner.
+- Viajes: `trips_guard_update` fija el inicio (vehículo, lectura y hora de
+  inicio inmutables) y no permite reabrir un viaje terminado; las
+  restricciones de `trips` exigen `ended_at` cuando hay `end_reading_id` y
+  `gps_distance >= 0`; `trip_routes` comprueba que `segments` sea un array y
+  `point_count >= 2`, y solo acepta rutas de viajes de la misma organización.
 
 ## Diseño
 
@@ -273,9 +318,11 @@ escribir datos.
 2. Viajes con GPS, combustible y gastos, mantenimiento con recordatorios, PDF.
 3. Panel web: dashboard, tabla de vehículos, usuarios y permisos, reportes.
 
-Decisión de producto (2026-09): la app web cubre solo vehículos y lecturas.
-Gastos, mantenimiento y viajes con GPS no se exponen en la interfaz; sus tablas
-y esquemas siguen en `packages/db` y `packages/shared` para la fase 2.
+Decisión de producto (2026-09-25): la app web cubre vehículos, lecturas y
+viajes con GPS. Un viaje es lectura de inicio → ruta por GPS → lectura final
+confirmada por el usuario; no hay turnos ni entregas. Gastos y mantenimiento no
+se exponen en la interfaz; sus tablas y esquemas siguen en `packages/db` y
+`packages/shared` para la fase 2.
 
 No implementes nada de una fase posterior sin que se pida. Si una tarea es
 ambigua o choca con una regla de este archivo, pregunta antes de escribir código.

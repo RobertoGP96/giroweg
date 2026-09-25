@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { ReadingRow, VehicleRow } from "@giroweg/db";
-import type { Reading, Vehicle } from "@giroweg/shared/schemas";
+import type { ReadingRow, TripRouteRow, TripRow, VehicleRow } from "@giroweg/db";
+import { type Reading, type Trip, type TripRoute, tripRouteSchema, type Vehicle } from "@giroweg/shared/schemas";
 
 /**
  * The app speaks ISO 8601 UTC everywhere (domain rule 5). Drizzle types
@@ -56,3 +56,34 @@ export const readingFromRow = (row: ReadingRow): Reading => ({
   voidReason: row.voidReason,
   odometerReset: row.odometerReset,
 });
+
+export const tripFromRow = (row: TripRow): Trip => ({
+  id: row.id,
+  orgId: row.orgId,
+  createdAt: toIso(row.createdAt),
+  updatedAt: toIso(row.updatedAt),
+  syncedAt: toIso(row.syncedAt),
+  vehicleId: row.vehicleId,
+  startReadingId: row.startReadingId,
+  endReadingId: row.endReadingId,
+  startedAt: toIso(row.startedAt),
+  endedAt: nullableIso(row.endedAt),
+  gpsDistance: row.gpsDistance === null ? null : Number(row.gpsDistance),
+  reason: row.reason,
+  stops: row.stops,
+  pauses: row.pauses,
+  pausedSeconds: row.pausedSeconds,
+});
+
+/** The jsonb `segments` is never trusted as-is: the whole route is re-validated. */
+export const tripRouteFromRow = (row: TripRouteRow): TripRoute =>
+  tripRouteSchema.parse({
+    id: row.id,
+    orgId: row.orgId,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+    syncedAt: toIso(row.syncedAt),
+    tripId: row.tripId,
+    segments: row.segments,
+    pointCount: row.pointCount,
+  });

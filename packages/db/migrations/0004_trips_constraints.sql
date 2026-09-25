@@ -1,0 +1,3 @@
+ALTER TABLE "trips" ADD CONSTRAINT "trips_id_org_unique" UNIQUE("id","org_id");--> statement-breakpoint
+ALTER TABLE "trips" ADD CONSTRAINT "trips_end_requires_ended" CHECK ("trips"."end_reading_id" IS NULL OR "trips"."ended_at" IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "trips" ADD CONSTRAINT "trips_gps_distance_nonnegative" CHECK ("trips"."gps_distance" IS NULL OR "trips"."gps_distance" >= 0);

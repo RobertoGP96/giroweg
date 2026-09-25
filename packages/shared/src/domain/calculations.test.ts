@@ -26,6 +26,11 @@ describe("compareGpsWithOdometer", () => {
       ratio: 0,
       withinMargin: true,
     });
+    expect(compareGpsWithOdometer(0, 12)).toEqual({
+      difference: 12,
+      ratio: 1,
+      withinMargin: false,
+    });
   });
 });
 

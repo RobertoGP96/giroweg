@@ -1,37 +1,53 @@
 import { and, eq, inArray, schema, sql } from "@giroweg/db";
-import { readingSchema, vehicleSchema } from "@giroweg/shared/schemas";
+import { readingSchema, type TripRoute, tripRouteSchema, tripSchema, vehicleSchema } from "@giroweg/shared/schemas";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authenticate } from "@/auth/requireUser";
 import { describeDbError } from "@/db/errors";
-import { readingFromRow, toIso, vehicleFromRow } from "@/db/rows";
+import { readingFromRow, toIso, tripFromRow, vehicleFromRow } from "@/db/rows";
 import { getServerDb } from "@/db/server";
+import type { PushResult } from "@/features/sync/protocol";
 
 export const dynamic = "force-dynamic";
 
 const pushSchema = z.object({
   vehicles: z.array(vehicleSchema).default([]),
   readings: z.array(readingSchema).default([]),
+  trips: z.array(tripSchema).default([]),
+  /** Routes are validated one by one so a bad one does not sink the whole push. */
+  tripRoutes: z.array(z.unknown()).default([]),
 });
 
-interface PushResult {
-  table: "vehicles" | "readings";
+/** The tables a push may carry; all share the `syncedRecord` columns. */
+type SyncedTable = typeof schema.vehicles | typeof schema.readings | typeof schema.trips | typeof schema.tripRoutes;
+interface Stamp {
   id: string;
-  ok: boolean;
-  syncedAt: string | null;
-  error: string | null;
-  /** Retrying the same record cannot succeed (validation, integrity). */
-  permanent: boolean;
+  syncedAt: string | Date;
 }
 
 /** `excluded.<column>` inside ON CONFLICT DO UPDATE. */
 const excluded = (column: { name: string }) => sql.raw(`excluded.${column.name}`);
+
+const accepted = (table: PushResult["table"], id: string): PushResult => ({
+  table,
+  id,
+  ok: true,
+  syncedAt: null,
+  error: null,
+  permanent: false,
+});
 
 /** Records a rejected record for the server log and tells the device why. */
 const rejected = (table: PushResult["table"], id: string, cause: unknown): PushResult => {
   const described = describeDbError(cause);
   console.error(`[sync] ${table} ${id} rejected (${described.code ?? "no sqlstate"}): ${described.detail}`);
   return { table, id, ok: false, syncedAt: null, error: described.error, permanent: described.permanent };
+};
+
+/** The id of an unvalidated route item, when it carries a string one. */
+const routeIdOf = (item: unknown): string => {
+  if (typeof item === "object" && item !== null && "id" in item && typeof item.id === "string") return item.id;
+  return "unknown";
 };
 
 /** Everything the organization has: the device replaces its local copy with it. */
@@ -43,9 +59,10 @@ export async function GET(request: Request) {
 
   try {
     const db = getServerDb();
-    const [vehicleRows, readingRows] = await Promise.all([
+    const [vehicleRows, readingRows, tripRows] = await Promise.all([
       db.select().from(schema.vehicles).where(eq(schema.vehicles.orgId, user.orgId)),
       db.select().from(schema.readings).where(eq(schema.readings.orgId, user.orgId)),
+      db.select().from(schema.trips).where(eq(schema.trips.orgId, user.orgId)),
     ]);
     return NextResponse.json({
       userId: user.id,
@@ -53,6 +70,7 @@ export async function GET(request: Request) {
       serverTime: new Date().toISOString(),
       vehicles: vehicleRows.map(vehicleFromRow),
       readings: readingRows.map(readingFromRow),
+      trips: tripRows.map(tripFromRow),
     });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
@@ -61,10 +79,11 @@ export async function GET(request: Request) {
 }
 
 /**
- * Idempotent upsert of the device outbox, vehicles before readings. The
- * organization and author always come from the verified user, never from
- * the payload. Vehicles: the most recent `updated_at` wins. Readings are
- * append-only: only voiding and the photo may change (trigger-enforced).
+ * Idempotent upsert of the device outbox: vehicles, readings, trips, then
+ * routes. The organization and author always come from the verified user,
+ * never from the payload. Vehicles: the most recent `updated_at` wins.
+ * Readings are append-only: only voiding and the photo may change. Trips
+ * only change when they end (trigger-enforced). Routes are replaced whole.
  */
 export async function POST(request: Request) {
   const auth = await authenticate(request);
@@ -82,6 +101,9 @@ export async function POST(request: Request) {
 
   const db = getServerDb();
   const results: PushResult[] = [];
+  /** Only a row of this organization may be updated, and only by a newer version. */
+  const newerAndMine = (table: { updatedAt: { name: string }; orgId: { name: string } }) =>
+    sql`${excluded(table.updatedAt)} > ${table.updatedAt} and ${table.orgId} = ${orgId}`;
 
   for (const vehicle of parsed.data.vehicles) {
     try {
@@ -118,9 +140,9 @@ export async function POST(request: Request) {
             initialValue: excluded(schema.vehicles.initialValue),
             archivedAt: excluded(schema.vehicles.archivedAt),
           },
-          setWhere: sql`${excluded(schema.vehicles.updatedAt)} > ${schema.vehicles.updatedAt} and ${schema.vehicles.orgId} = ${orgId}`,
+          setWhere: newerAndMine(schema.vehicles),
         });
-      results.push({ table: "vehicles", id: vehicle.id, ok: true, syncedAt: null, error: null, permanent: false });
+      results.push(accepted("vehicles", vehicle.id));
     } catch (cause) {
       results.push(rejected("vehicles", vehicle.id, cause));
     }
@@ -154,32 +176,111 @@ export async function POST(request: Request) {
             voidReason: excluded(schema.readings.voidReason),
             photoPath: excluded(schema.readings.photoPath),
           },
-          setWhere: sql`${excluded(schema.readings.updatedAt)} > ${schema.readings.updatedAt} and ${schema.readings.orgId} = ${orgId}`,
+          setWhere: newerAndMine(schema.readings),
         });
-      results.push({ table: "readings", id: reading.id, ok: true, syncedAt: null, error: null, permanent: false });
+      results.push(accepted("readings", reading.id));
     } catch (cause) {
       results.push(rejected("readings", reading.id, cause));
     }
   }
 
+  for (const trip of parsed.data.trips) {
+    try {
+      await db
+        .insert(schema.trips)
+        .values({
+          id: trip.id,
+          orgId,
+          createdAt: trip.createdAt,
+          updatedAt: trip.updatedAt,
+          vehicleId: trip.vehicleId,
+          startReadingId: trip.startReadingId,
+          endReadingId: trip.endReadingId,
+          startedAt: trip.startedAt,
+          endedAt: trip.endedAt,
+          gpsDistance: trip.gpsDistance,
+          reason: trip.reason,
+          stops: trip.stops,
+          pauses: trip.pauses,
+          pausedSeconds: trip.pausedSeconds,
+        })
+        .onConflictDoUpdate({
+          target: schema.trips.id,
+          set: {
+            updatedAt: excluded(schema.trips.updatedAt),
+            endReadingId: excluded(schema.trips.endReadingId),
+            endedAt: excluded(schema.trips.endedAt),
+            gpsDistance: excluded(schema.trips.gpsDistance),
+            reason: excluded(schema.trips.reason),
+            stops: excluded(schema.trips.stops),
+            pauses: excluded(schema.trips.pauses),
+            pausedSeconds: excluded(schema.trips.pausedSeconds),
+          },
+          setWhere: newerAndMine(schema.trips),
+        });
+      results.push(accepted("trips", trip.id));
+    } catch (cause) {
+      results.push(rejected("trips", trip.id, cause));
+    }
+  }
+
+  for (const item of parsed.data.tripRoutes) {
+    const validated = tripRouteSchema.safeParse(item);
+    if (!validated.success) {
+      results.push({
+        table: "tripRoutes",
+        id: routeIdOf(item),
+        ok: false,
+        syncedAt: null,
+        error: "invalid_route",
+        permanent: true,
+      });
+      continue;
+    }
+    const route: TripRoute = validated.data;
+    try {
+      await db
+        .insert(schema.tripRoutes)
+        .values({
+          id: route.id,
+          orgId,
+          createdAt: route.createdAt,
+          updatedAt: route.updatedAt,
+          tripId: route.tripId,
+          segments: route.segments,
+          pointCount: route.pointCount,
+        })
+        .onConflictDoUpdate({
+          target: schema.tripRoutes.id,
+          set: {
+            updatedAt: excluded(schema.tripRoutes.updatedAt),
+            segments: excluded(schema.tripRoutes.segments),
+            pointCount: excluded(schema.tripRoutes.pointCount),
+          },
+          setWhere: newerAndMine(schema.tripRoutes),
+        });
+      results.push(accepted("tripRoutes", route.id));
+    } catch (cause) {
+      results.push(rejected("tripRoutes", route.id, cause));
+    }
+  }
+
   // Server sync time of every accepted record, so the device can show it.
-  const acceptedVehicles = results.filter((r) => r.ok && r.table === "vehicles").map((r) => r.id);
-  const acceptedReadings = results.filter((r) => r.ok && r.table === "readings").map((r) => r.id);
-  const [vehicleStamps, readingStamps] = await Promise.all([
-    acceptedVehicles.length
-      ? db
-          .select({ id: schema.vehicles.id, syncedAt: schema.vehicles.syncedAt })
-          .from(schema.vehicles)
-          .where(and(eq(schema.vehicles.orgId, orgId), inArray(schema.vehicles.id, acceptedVehicles)))
-      : Promise.resolve([]),
-    acceptedReadings.length
-      ? db
-          .select({ id: schema.readings.id, syncedAt: schema.readings.syncedAt })
-          .from(schema.readings)
-          .where(and(eq(schema.readings.orgId, orgId), inArray(schema.readings.id, acceptedReadings)))
-      : Promise.resolve([]),
+  const stampsOf = async (table: PushResult["table"], from: SyncedTable): Promise<Stamp[]> => {
+    const ids = results.filter((r) => r.ok && r.table === table).map((r) => r.id);
+    if (ids.length === 0) return [];
+    return db
+      .select({ id: from.id, syncedAt: from.syncedAt })
+      .from(from)
+      .where(and(eq(from.orgId, orgId), inArray(from.id, ids)));
+  };
+  const stampRows = await Promise.all([
+    stampsOf("vehicles", schema.vehicles),
+    stampsOf("readings", schema.readings),
+    stampsOf("trips", schema.trips),
+    stampsOf("tripRoutes", schema.tripRoutes),
   ]);
-  const stamps = new Map([...vehicleStamps, ...readingStamps].map((row) => [row.id, toIso(row.syncedAt)] as const));
+  const stamps = new Map(stampRows.flat().map((row) => [row.id, toIso(row.syncedAt)] as const));
   for (const result of results) {
     if (!result.ok) continue;
     const syncedAt = stamps.get(result.id);

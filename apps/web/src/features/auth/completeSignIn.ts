@@ -4,6 +4,8 @@ import { getStore } from "@/db/client";
 import { clearAsyncCache } from "@/lib/asyncCache";
 import { apiFetch } from "@/features/sync/api";
 import { syncNow } from "@/features/sync/engine";
+import { clearTripSnapshot } from "@/features/trips/snapshot";
+import { useTripStore } from "@/features/trips/store";
 
 interface OnboardingResult {
   userId: string;
@@ -26,6 +28,8 @@ export const completeSignIn = async (): Promise<string> => {
   if (result.organizationId) {
     if (store.session && store.session.userId !== result.userId) {
       store.reset();
+      clearTripSnapshot();
+      useTripStore.getState().clear();
       clearAsyncCache();
     }
     store.setSession({ userId: result.userId, orgId: result.organizationId });

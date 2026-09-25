@@ -1,11 +1,13 @@
 "use client";
 
+import { isDistanceUnit } from "@giroweg/shared/domain";
 import { Avatar } from "@heroui/react";
-import { Car, Plus } from "lucide-react";
+import { Car, Navigation, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionUser } from "@/auth/useSessionUser";
+import { usePersistStatus } from "@/db/persistStatus";
 import { formatDateTime, formatOdometer } from "@/lib/format";
 import { ReadingRow } from "@/features/readings/components/ReadingRow";
 import { useReadings, useVehicleStats } from "@/features/readings/hooks/useReadings";
@@ -14,9 +16,11 @@ import { SyncQueueCard } from "@/features/sync/components/SyncQueueCard";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { recordSyncState } from "@/features/sync/hooks/useRecordSync";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
+import { ActiveTripBanner } from "@/features/trips/components/ActiveTripBanner";
+import { useActiveTrip } from "@/features/trips/hooks/useActiveTrip";
 import { primeVehicleDetail, useSelectedVehicle, useVehicles } from "@/features/vehicles/hooks/useVehicles";
 import { selectVehicle } from "@/features/vehicles/repository";
-import { Button, Card, EmptyState, ErrorState, Figure, FilterChip, ListSkeleton, OfflineBanner, Screen, SectionLabel, SharedElement, Spacer, navOptions, useNavigate } from "@/ui";
+import { AlertCard, Button, Card, EmptyState, ErrorState, Figure, FilterChip, ListSkeleton, OfflineBanner, Screen, SectionLabel, SharedElement, Spacer, navOptions, useNavigate } from "@/ui";
 
 const RECENT_COUNT = 3;
 
@@ -30,16 +34,21 @@ export function HomeScreen() {
   const selected = useSelectedVehicle(vehicles.data);
   const stats = useVehicleStats(selected?.vehicle.id);
   const readings = useReadings(selected?.vehicle.id);
+  const { tracking } = useActiveTrip();
+  const quotaExceeded = usePersistStatus((state) => state.quotaExceeded);
 
   // The primary actions must feel instant: preload their screens.
   useEffect(() => {
     prefetch("/readings/new");
     prefetch("/vehicles/new");
+    prefetch("/trips/start");
   }, [prefetch]);
 
   const empty = vehicles.status === "success" && vehicles.data.length === 0;
   const unit = selected?.vehicle.unit ?? "km";
   const recent = (readings.data ?? []).slice(0, RECENT_COUNT);
+  // A trip needs a distance unit; while one runs, the banner replaces the start button.
+  const canStartTrip = selected !== undefined && isDistanceUnit(selected.vehicle.unit) && tracking === null;
 
   return (
     <>
@@ -58,6 +67,9 @@ export function HomeScreen() {
             </Avatar>
           </Link>
         </header>
+
+        <ActiveTripBanner />
+        {quotaExceeded && <AlertCard emphasized title={t("states.storageFull")} />}
 
         {vehicles.status === "loading" && <ListSkeleton />}
         {vehicles.status === "error" && <ErrorState onRetry={vehicles.reload} />}
@@ -151,10 +163,23 @@ export function HomeScreen() {
             {!online && <SyncQueueCard entries={queue} online={online} />}
 
             <Spacer />
-            <Button size="lg" className="mb-1" isPending={pending} onPress={() => push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
-              <Plus className="size-5.5" strokeWidth={2.4} aria-hidden />
-              {t("readings.new")}
-            </Button>
+            {canStartTrip ? (
+              <div className="mb-1 flex flex-col gap-2.5">
+                <Button variant="secondary" size="md" isPending={pending} onPress={() => push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
+                  <Plus className="size-5" strokeWidth={2.4} aria-hidden />
+                  {t("readings.new")}
+                </Button>
+                <Button size="lg" isPending={pending} onPress={() => push(`/trips/start?vehicle=${selected.vehicle.id}`)}>
+                  <Navigation className="size-5.5" strokeWidth={2.4} aria-hidden />
+                  {t("home.startTrip")}
+                </Button>
+              </div>
+            ) : (
+              <Button size="lg" className="mb-1" isPending={pending} onPress={() => push(`/readings/new?vehicle=${selected.vehicle.id}`)}>
+                <Plus className="size-5.5" strokeWidth={2.4} aria-hidden />
+                {t("readings.new")}
+              </Button>
+            )}
           </>
         )}
       </Screen>

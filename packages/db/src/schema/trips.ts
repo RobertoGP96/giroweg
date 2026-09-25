@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, integer, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
 import { distance, syncedRecord, timestamptz } from "./columns";
 import { readings } from "./readings";
 import { orgPolicies } from "./rls";
@@ -37,8 +37,11 @@ export const trips = pgTable(
       columns: [t.endReadingId, t.orgId],
       foreignColumns: [readings.id, readings.orgId],
     }),
+    unique("trips_id_org_unique").on(t.id, t.orgId),
     index("trips_vehicle_started_idx").on(t.vehicleId, t.startedAt),
     check("trips_ended_after_started", sql`${t.endedAt} IS NULL OR ${t.endedAt} >= ${t.startedAt}`),
+    check("trips_end_requires_ended", sql`${t.endReadingId} IS NULL OR ${t.endedAt} IS NOT NULL`),
+    check("trips_gps_distance_nonnegative", sql`${t.gpsDistance} IS NULL OR ${t.gpsDistance} >= 0`),
     check("trips_counters_nonnegative", sql`${t.stops} >= 0 AND ${t.pauses} >= 0 AND ${t.pausedSeconds} >= 0`),
     ...orgPolicies("trips", t.orgId, { delete: "admin" }),
   ],

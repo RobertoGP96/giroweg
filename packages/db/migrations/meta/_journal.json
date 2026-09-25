@@ -29,6 +29,27 @@
       "when": 1789837960719,
       "tag": "0003_organization_for",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790363191080,
+      "tag": "0004_trips_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790363210687,
+      "tag": "0005_trip_routes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790363218981,
+      "tag": "0006_trips_triggers",
+      "breakpoints": true
     }
   ]
 }

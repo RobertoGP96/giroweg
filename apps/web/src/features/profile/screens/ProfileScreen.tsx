@@ -21,6 +21,8 @@ import { syncErrorMessage } from "@/features/sync/errorMessage";
 import { useOnlineStatus } from "@/features/sync/hooks/useOnlineStatus";
 import { useSyncQueue } from "@/features/sync/hooks/useSyncQueue";
 import { useSyncStatus } from "@/features/sync/store";
+import { clearTripSnapshot } from "@/features/trips/snapshot";
+import { useTripStore } from "@/features/trips/store";
 import { useVehicles } from "@/features/vehicles/hooks/useVehicles";
 import { Card, OfflineBanner, Screen, SectionLabel, Segmented, SettingsRow, Spinner, useNavigate } from "@/ui";
 
@@ -46,6 +48,8 @@ export function ProfileScreen() {
     await authClient.signOut();
     getStore().reset();
     clearPersistedState();
+    clearTripSnapshot();
+    useTripStore.getState().clear();
     clearAsyncCache();
     replace("/login", "back");
   };

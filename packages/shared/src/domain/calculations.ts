@@ -23,7 +23,10 @@ export const compareGpsWithOdometer = (
   tolerance: number = GPS_ODOMETER_TOLERANCE,
 ): GpsComparison => {
   const difference = Math.abs(odometerDistance - gpsDistance);
-  const ratio = odometerDistance === 0 ? 0 : difference / odometerDistance;
+  // Without an odometer distance the ratio is undefined: no movement on
+  // either side is a match (0); any GPS distance is a total mismatch (1).
+  const ratio =
+    odometerDistance === 0 ? (gpsDistance === 0 ? 0 : 1) : difference / odometerDistance;
   return { difference, ratio, withinMargin: ratio <= tolerance };
 };
 

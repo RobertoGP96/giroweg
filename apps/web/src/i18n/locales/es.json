@@ -21,7 +21,8 @@
     "loading": "Cargando",
     "yes": "Sí",
     "no": "No",
-    "optional": "opcional"
+    "optional": "opcional",
+    "stepOf": "Paso {{current}} de {{total}}"
   },
   "nav": {
     "label": "Navegación principal",
@@ -46,7 +47,8 @@
     "addFirstReading": "Registrar primera lectura",
     "offlinePageTitle": "Sin conexión",
     "offlinePageBody": "Esta pantalla aún no está guardada en el teléfono. Vuelve al inicio para seguir trabajando en local.",
-    "offlineBackToApp": "Volver al inicio"
+    "offlineBackToApp": "Volver al inicio",
+    "storageFull": "El almacenamiento del teléfono está lleno: los datos nuevos se guardan solo en memoria hasta que se sincronicen."
   },
   "onboarding": {
     "step1Title": "Cada kilómetro,\nregistrado.",
@@ -201,13 +203,17 @@
     "seeAll": "Ver todo",
     "emptyTitle": "Empieza con tu primer vehículo",
     "emptyBody": "Añádelo y registra su kilometraje en segundos, con o sin conexión.",
-    "profileOf": "Perfil de {{name}}"
+    "profileOf": "Perfil de {{name}}",
+    "startTrip": "Iniciar viaje"
   },
   "history": {
     "title": "Historial",
     "week": "Semana",
     "month": "Mes",
-    "all": "Todo"
+    "all": "Todo",
+    "readings": "Lecturas",
+    "trips": "Viajes",
+    "tab": "Tipo de historial"
   },
   "profile": {
     "vehicles": "Vehículos",
@@ -242,7 +248,9 @@
     },
     "table": {
       "vehicles": "Vehículo",
-      "readings": "Lectura"
+      "readings": "Lectura",
+      "trips": "Viaje",
+      "tripRoutes": "Ruta del viaje"
     },
     "retry": "Reintentar ahora",
     "bootstrapPending": "Descargando tu cuenta desde el servidor…",
@@ -262,7 +270,106 @@
       "foreign_key_violation": "Rechazada por el servidor: el vehículo de esta lectura no existe allí.",
       "unique_violation": "Rechazada por el servidor: ya existe un registro con este id.",
       "insufficient_privilege": "Rechazada por el servidor: sin permiso para esta operación.",
-      "forbidden": "Sin permiso para este registro."
+      "forbidden": "Sin permiso para este registro.",
+      "dependency_rejected": "En espera: la lectura o el viaje del que depende fue rechazado. Corrígelo y reintenta.",
+      "check_violation": "Rechazado por el servidor: los datos no cumplen una regla.",
+      "invalid_route": "La ruta enviada no es válida.",
+      "trip_start_immutable": "El inicio de un viaje no puede cambiar.",
+      "trip_already_ended": "El viaje ya estaba terminado."
+    }
+  },
+  "trips": {
+    "start": "Iniciar viaje",
+    "startTitle": "Odómetro inicial",
+    "startBody": "Confirma lo que marca el odómetro antes de salir.",
+    "startValue": "Lectura inicial",
+    "confirmAndStart": "Confirmar e iniciar",
+    "inProgress": "Viaje en curso",
+    "continue": "Continuar viaje",
+    "gpsDistance": "Distancia GPS",
+    "estimatedOdometer": "Odómetro estimado",
+    "time": "Tiempo",
+    "speed": "Velocidad",
+    "speedUnit": {
+      "km": "km/h",
+      "mi": "mi/h"
+    },
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "paused": "En pausa",
+    "finish": "Finalizar viaje",
+    "cancel": "Cancelar viaje",
+    "cancelTitle": "¿Cancelar este viaje?",
+    "cancelBody": "El viaje no contará. La lectura inicial se conserva; puedes anularla desde su detalle.",
+    "cancelConfirm": "Sí, cancelar",
+    "endTitle": "Fin del viaje",
+    "endValue": "Lectura final",
+    "suggestedBy": "Sugerida por GPS: {{value}} · comprueba el odómetro",
+    "noSuggestion": "Sin datos GPS: escribe la lectura final a mano.",
+    "startedAt": "Lectura inicial: {{value}}",
+    "odometerDistance": "Distancia por odómetro",
+    "gps": "GPS",
+    "odometer": "Odómetro",
+    "difference": "Diferencia",
+    "withinMargin": "{{value}} ({{percent}}) · dentro del margen",
+    "outOfMargin": "{{value}} ({{percent}}) · revisar",
+    "pauses": "Pausas",
+    "pausesSummary": "{{count}} · {{minutes}} min",
+    "points": "Puntos GPS",
+    "reason": "Motivo",
+    "save": "Guardar viaje",
+    "gapsWarningTitle_one": "Se perdió la señal GPS {{count}} vez",
+    "gapsWarningTitle_other": "Se perdió la señal GPS {{count}} veces",
+    "gapsWarningBody": "La distancia puede estar subestimada. Comprueba la lectura final en el odómetro.",
+    "detailTitle": "Detalle de viaje",
+    "detailDate": "Viaje del {{date}}",
+    "duration": "Duración",
+    "route": "Ruta",
+    "routeEmpty": "Este viaje no tiene ruta GPS.",
+    "routeOffline": "La ruta se descargará cuando vuelva la conexión.",
+    "mapLabel": "Mapa de la ruta · {{distance}}",
+    "mapOffline": "Mapa sin conexión",
+    "mapUnavailable": "El mapa no está disponible en este dispositivo. El recorrido se sigue registrando.",
+    "waitingGps": "Esperando señal GPS…",
+    "permissionDeniedTitle": "Ubicación bloqueada",
+    "permissionDeniedBody": "Activa el permiso de ubicación de este sitio en los ajustes del navegador. Puedes iniciar el viaje igualmente; sin GPS no habrá ruta ni sugerencia.",
+    "hoursVehicleTitle": "Este vehículo mide horas",
+    "hoursVehicleBody": "Los viajes con GPS solo están disponibles para vehículos en km o millas.",
+    "emptyTitle": "Aún no hay viajes",
+    "emptyBody": "Inicia un viaje desde Inicio: se registran la lectura inicial, la ruta GPS y la lectura final.",
+    "open": "En curso",
+    "cancelled": "Cancelado",
+    "rowLine": "{{start}} – {{end}}",
+    "rowGps": "GPS {{value}}",
+    "review": "revisar",
+    "fixEndReading": "Corregir lectura final",
+    "fixEndReadingBody": "El servidor rechazó la lectura final. Escribe el valor correcto: la anterior quedará anulada.",
+    "voidReasonRejected": "Lectura final rechazada por el servidor",
+    "inProgressElsewhere": "En curso en otro dispositivo",
+    "notFoundTitle": "Viaje no encontrado",
+    "notFoundBody": "Este viaje no está en el teléfono. Puede que se haya registrado en otro dispositivo y aún no se haya sincronizado.",
+    "routeLoading": "Cargando la ruta",
+    "gpsStatus": {
+      "searching": "Buscando señal GPS",
+      "ok": "GPS · ±{{accuracy}} m",
+      "weak": "Señal débil · ±{{accuracy}} m",
+      "timeout": "Sin señal GPS",
+      "denied": "Ubicación denegada",
+      "unavailable": "Ubicación no disponible",
+      "paused": "En pausa"
+    },
+    "wakeLock": {
+      "held": "Pantalla encendida",
+      "released": "La pantalla puede apagarse",
+      "retry": "Mantener encendida",
+      "unsupported": "Este navegador no mantiene la pantalla encendida: amplía el tiempo de bloqueo del teléfono antes de salir."
+    },
+    "errors": {
+      "start": "No pudimos iniciar el viaje. Inténtalo de nuevo.",
+      "finish": "No pudimos guardar el viaje. Inténtalo de nuevo.",
+      "cancel": "No pudimos cancelar el viaje.",
+      "alreadyActive": "Ya hay un viaje en curso.",
+      "snapshot": "No se puede guardar el progreso en este teléfono; si cierras la app, la ruta se perderá."
     }
   }
 }

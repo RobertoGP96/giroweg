@@ -6,6 +6,7 @@ import type {
   memberships,
   organizations,
   readings,
+  tripRoutes,
   trips,
   vehicles,
 } from "./schema";
@@ -18,6 +19,8 @@ export type ReadingRow = InferSelectModel<typeof readings>;
 export type ReadingInsert = InferInsertModel<typeof readings>;
 export type TripRow = InferSelectModel<typeof trips>;
 export type TripInsert = InferInsertModel<typeof trips>;
+export type TripRouteRow = InferSelectModel<typeof tripRoutes>;
+export type TripRouteInsert = InferInsertModel<typeof tripRoutes>;
 export type ExpenseRow = InferSelectModel<typeof expenses>;
 export type ExpenseInsert = InferInsertModel<typeof expenses>;
 export type MaintenanceRuleRow = InferSelectModel<typeof maintenanceRules>;

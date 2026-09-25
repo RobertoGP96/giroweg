@@ -1,11 +1,11 @@
 "use client";
 
-import { Car, Gauge, RefreshCw } from "lucide-react";
+import { Car, Gauge, type LucideIcon, Map, RefreshCw, Route } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getStore } from "@/db/client";
-import type { OutboxEntry } from "@/db/store";
+import type { LocalStore, OutboxEntry, TableName } from "@/db/store";
 import { cn } from "@/lib/cn";
-import { formatOdometer, formatTime } from "@/lib/format";
+import { formatDateTime, formatOdometer, formatTime } from "@/lib/format";
 import { Button, Card, SectionLabel, Spinner } from "@/ui";
 import { retryNow } from "../engine";
 import { syncErrorMessage } from "../errorMessage";
@@ -16,16 +16,47 @@ interface SyncQueueCardProps {
   online: boolean;
 }
 
-/** What each pending entry is, in words: the vehicle name or the reading value. */
+const ICONS: Record<TableName, LucideIcon> = {
+  vehicles: Car,
+  readings: Gauge,
+  trips: Route,
+  tripRoutes: Map,
+};
+
+const vehicleName = (store: LocalStore, vehicleId: string): string | undefined =>
+  store.table("vehicles").find((row) => row.id === vehicleId)?.name;
+
+/** A trip in words: its vehicle and when it started. */
+const describeTrip = (store: LocalStore, tripId: string): string | undefined => {
+  const trip = store.table("trips").find((row) => row.id === tripId);
+  if (!trip) return undefined;
+  const name = vehicleName(store, trip.vehicleId);
+  const when = formatDateTime(trip.startedAt);
+  return name ? `${name} · ${when}` : when;
+};
+
+/**
+ * What each pending entry is, in words: the vehicle name, the reading value,
+ * or the trip (a route is described through its trip).
+ */
 const describe = (entry: OutboxEntry): string => {
   const store = getStore();
-  if (entry.table === "vehicles") {
-    return store.table("vehicles").find((row) => row.id === entry.recordId)?.name ?? entry.recordId;
+  switch (entry.table) {
+    case "vehicles":
+      return vehicleName(store, entry.recordId) ?? entry.recordId;
+    case "readings": {
+      const reading = store.table("readings").find((row) => row.id === entry.recordId);
+      if (!reading) return entry.recordId;
+      const vehicle = store.table("vehicles").find((row) => row.id === reading.vehicleId);
+      return `${formatOdometer(reading.value)} ${vehicle?.unit ?? ""}`.trim();
+    }
+    case "trips":
+      return describeTrip(store, entry.recordId) ?? entry.recordId;
+    case "tripRoutes": {
+      const route = store.table("tripRoutes").find((row) => row.id === entry.recordId);
+      return (route && describeTrip(store, route.tripId)) ?? entry.recordId;
+    }
   }
-  const reading = store.table("readings").find((row) => row.id === entry.recordId);
-  if (!reading) return entry.recordId;
-  const vehicle = store.table("vehicles").find((row) => row.id === reading.vehicleId);
-  return `${formatOdometer(reading.value)} ${vehicle?.unit ?? ""}`.trim();
 };
 
 /** The sync queue: what is waiting in the outbox and what is being sent. */
@@ -41,7 +72,7 @@ export function SyncQueueCard({ entries, online }: SyncQueueCardProps) {
       <SectionLabel>{t("states.syncQueue")}</SectionLabel>
       <Card padding="none" className="flex flex-col">
         {entries.map((entry, index) => {
-          const Icon = entry.table === "vehicles" ? Car : Gauge;
+          const Icon = ICONS[entry.table];
           const active = online && syncing && index === 0;
           return (
             <div

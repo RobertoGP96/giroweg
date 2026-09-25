@@ -143,6 +143,31 @@ export const sizes = {
 /** Difference between GPS and odometer distance considered normal. */
 export const GPS_ODOMETER_TOLERANCE = 0.03;
 
+/**
+ * Thresholds of the GPS trip recorder. They filter raw fixes, bound the
+ * stored route and configure the position watch. Shared by web and mobile.
+ */
+export const GPS_THRESHOLDS = {
+  /** Fixes with a 95 % accuracy radius above this (metres) are discarded. */
+  maxAccuracyM: 30,
+  /** Minimum distance (metres) from the last accepted fix to count a step. */
+  minStepM: 10,
+  /** Steps implying a speed above this (m/s, 216 km/h) are discarded as jumps. */
+  maxSpeedMps: 60,
+  /** Time (ms) without an accepted fix after which the route starts a new segment. */
+  maxGapMs: 120_000,
+  /** Douglas-Peucker tolerance (metres) used to simplify a route before storing it. */
+  simplifyToleranceM: 5,
+  /** Maximum number of points of a stored route across all its segments. */
+  maxRoutePoints: 3000,
+  /** Maximum number of raw points kept in memory while recording. */
+  liveBufferPoints: 5000,
+  /** Maximum age (ms) of a cached position accepted by the position watch. */
+  watchMaximumAgeMs: 1000,
+  /** Time (ms) the position watch waits for a fix before reporting a timeout. */
+  watchTimeoutMs: 15_000,
+} as const;
+
 const kebab = (key: string): string =>
   key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
